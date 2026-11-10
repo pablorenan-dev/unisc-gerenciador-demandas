@@ -229,7 +229,7 @@ function App() {
           <div className="nav-label">Quadros</div>
           <button className="nav-item active-board"><Columns3 size={18} /><span>Demandas 2026/2</span><MoreHorizontal size={16} className="push" /></button>
           <button className="nav-item" onClick={() => { const name = window.prompt('Nome do novo quadro'); if (name?.trim()) setToast(`Quadro "${name.trim()}" criado`) }}><Plus size={18} /><span>Novo quadro</span></button>
-        </nav><div className="sidebar-user"><div className="avatar">{initials}</div><div className="sidebar-user-info"><strong>{displayName}</strong><small>{displayEmail}</small></div><button className="logout-btn" onClick={signOut}><LogOut size={15} /><span>Sair</span></button></div><div className="sidebar-resize" onPointerDown={resizeSidebar} title="Arraste para ajustar a largura do menu" />
+        </nav><div className="sidebar-user"><div className="avatar">{initials}</div><div className="sidebar-user-info"><strong>{displayName}</strong><small>{displayEmail}</small></div><button className="logout-btn" onClick={signOut}><LogOut size={15} /><span>Sair</span></button><span className="app-version">UGD v1.0.0</span></div><div className="sidebar-resize" onPointerDown={resizeSidebar} title="Arraste para ajustar a largura do menu" />
         <div className="sidebar-bottom">
           <button className="nav-item"><Settings size={18} /><span>Configurações</span></button>
           <button className="nav-item"><CircleHelp size={18} /><span>Ajuda</span></button>

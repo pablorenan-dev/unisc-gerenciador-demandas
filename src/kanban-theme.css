@@ -13,6 +13,7 @@
 .sidebar-user-info small{color:#aab8cb;font-size:9px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .logout-btn{display:flex;align-items:center;gap:5px;border:1px solid #52617a;background:#202c41;color:#dce5f2;border-radius:6px;padding:6px 9px;font-size:10px;cursor:pointer}
 .logout-btn:hover{background:#33425b;border-color:#7c76ff;color:#fff}
+.app-version{color:#7f8da4;font-size:9px;white-space:nowrap;margin-left:4px}
 .board-layout .sidebar main{margin-top:58px}
 .board-layout main{padding-top:58px}
 .board-layout .topbar{display:none}
