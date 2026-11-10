@@ -1,0 +1,5 @@
+-- Execute somente após criar um usuário pelo Supabase Auth.
+-- O seed é opcional e serve como referência para dados de demonstração.
+-- Substitua o UUID abaixo por auth.uid() em uma sessão autenticada ou insira via dashboard.
+-- insert into public.boards (nome, descricao, owner_id)
+-- values ('2026/2', 'Demandas do segundo semestre', '00000000-0000-0000-0000-000000000000');

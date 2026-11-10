@@ -1,0 +1,356 @@
+import { useEffect, useMemo, useState } from 'react'
+import {
+  Archive,
+  ArrowLeft,
+  ArrowRight,
+  Bell,
+  CalendarDays,
+  Check,
+  ChevronDown,
+  CircleHelp,
+  Clock3,
+  Columns3,
+  Filter,
+  LayoutDashboard,
+  LogOut,
+  Menu,
+  PanelLeftClose,
+  PanelLeftOpen,
+  Moon,
+  MoreHorizontal,
+  Plus,
+  Search,
+  Settings,
+  Sun,
+  Target,
+  X,
+} from 'lucide-react'
+import './App.css'
+import './overrides.css'
+import './kanban-theme.css'
+import { supabase } from './lib/supabase'
+
+type Priority = 'baixa' | 'media' | 'alta'
+type CardType = 'trabalho' | 'prova' | 'seminario' | 'leitura' | 'projeto' | 'outro'
+type View = 'overview' | 'board' | 'calendar'
+
+type Task = { id: string; title: string; done: boolean }
+type Card = {
+  id: string
+  title: string
+  description: string
+  discipline: string
+  type: CardType
+  priority: Priority
+  due: string
+  column: string
+  tasks: Task[]
+  labels: string[]
+}
+
+const initialCards: Card[] = [
+  { id: '1', title: 'Trabalho de Compiladores', description: 'Implementar o analisador léxico e entregar o relatório.', discipline: 'Compiladores', type: 'trabalho', priority: 'alta', due: '2026-11-12', column: 'doing', tasks: [{ id: 't1', title: 'Definir gramática', done: true }, { id: 't2', title: 'Implementar lexer', done: true }, { id: 't3', title: 'Escrever relatório', done: false }], labels: ['Código'] },
+  { id: '2', title: 'Prova de Banco de Dados', description: 'Revisar normalização, SQL e transações.', discipline: 'Banco de Dados', type: 'prova', priority: 'alta', due: '2026-11-18', column: 'todo', tasks: [{ id: 't4', title: 'Revisar material', done: false }, { id: 't5', title: 'Resolver exercícios', done: false }], labels: ['Prova'] },
+  { id: '3', title: 'Seminário de IA', description: 'Preparar apresentação sobre redes neurais.', discipline: 'Inteligência Artificial', type: 'seminario', priority: 'media', due: '2026-11-22', column: 'review', tasks: [{ id: 't6', title: 'Escolher referências', done: true }, { id: 't7', title: 'Montar slides', done: false }], labels: ['Apresentação'] },
+  { id: '4', title: 'Ler artigo científico', description: 'Artigo indicado para a próxima aula.', discipline: 'Metodologia', type: 'leitura', priority: 'baixa', due: '2026-11-28', column: 'done', tasks: [{ id: 't8', title: 'Fazer anotações', done: true }], labels: ['Leitura'] },
+]
+
+const defaultColumns = [
+  { id: 'todo', title: 'A fazer', color: '#94a3b8' },
+  { id: 'doing', title: 'Em andamento', color: '#4f46e5' },
+  { id: 'review', title: 'Em revisão', color: '#f59e0b' },
+  { id: 'done', title: 'Concluído', color: '#10b981' },
+]
+
+const typeLabels: Record<CardType, string> = { trabalho: 'Trabalho', prova: 'Prova', seminario: 'Seminário', leitura: 'Leitura', projeto: 'Projeto', outro: 'Outro' }
+const priorityLabels: Record<Priority, string> = { baixa: 'Baixa', media: 'Média', alta: 'Alta' }
+
+function daysUntil(date: string) {
+  const today = new Date('2026-11-10T12:00:00')
+  return Math.ceil((new Date(`${date}T12:00:00`).getTime() - today.getTime()) / 86400000)
+}
+
+function App() {
+  const [sessionReady, setSessionReady] = useState(!supabase)
+  const [authenticated, setAuthenticated] = useState(!supabase)
+  const [cards, setCards] = useState(initialCards)
+  const [activeView, setActiveView] = useState<View>('overview')
+  const [columns, setColumns] = useState(defaultColumns)
+  const [activeColumn, setActiveColumn] = useState('all')
+  const [search, setSearch] = useState('')
+  const [priority, setPriority] = useState<'all' | Priority>('all')
+  const [typeFilter, setTypeFilter] = useState<'all' | CardType>('all')
+  const [disciplineFilter, setDisciplineFilter] = useState('all')
+  const [showFilters, setShowFilters] = useState(false)
+  const [selected, setSelected] = useState<Card | null>(null)
+  const [showNew, setShowNew] = useState(false)
+  const [dark, setDark] = useState(true)
+  const [sidebar, setSidebar] = useState(false)
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+  const [sidebarWidth, setSidebarWidth] = useState(242)
+  const [toast, setToast] = useState('')
+  const [user, setUser] = useState<{ email?: string; user_metadata?: { nome?: string; name?: string } } | null>(null)
+
+  useEffect(() => {
+    if (!supabase) return
+    supabase.auth.getSession().then(({ data }) => {
+      setAuthenticated(Boolean(data.session))
+      setUser(data.session?.user ?? null)
+      setSessionReady(true)
+    })
+    const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
+      setAuthenticated(Boolean(session))
+      setUser(session?.user ?? null)
+      if (event === 'SIGNED_IN') {
+        setToast('Logado com sucesso!')
+        window.setTimeout(() => setToast(''), 2400)
+      }
+    })
+    if (window.localStorage.getItem('ugd-login-success') === 'true') {
+      window.localStorage.removeItem('ugd-login-success')
+      window.setTimeout(() => {
+        setToast('Login realizado com sucesso')
+        window.setTimeout(() => setToast(''), 2400)
+      }, 0)
+    }
+    return () => listener.subscription.unsubscribe()
+  }, [])
+
+  const filteredCards = useMemo(() => cards.filter((card) => {
+    const matchesText = `${card.title} ${card.description} ${card.discipline}`.toLowerCase().includes(search.toLowerCase())
+    return matchesText &&
+      (activeColumn === 'all' || card.column === activeColumn) &&
+      (priority === 'all' || card.priority === priority) &&
+      (typeFilter === 'all' || card.type === typeFilter) &&
+      (disciplineFilter === 'all' || card.discipline === disciplineFilter)
+  }), [cards, search, activeColumn, priority, typeFilter, disciplineFilter])
+
+  const disciplines = useMemo(() => [...new Set(cards.map((card) => card.discipline).filter(Boolean))].sort(), [cards])
+
+  function clearFilters() {
+    setSearch('')
+    setActiveColumn('all')
+    setPriority('all')
+    setTypeFilter('all')
+    setDisciplineFilter('all')
+  }
+
+  function moveCard(id: string, column: string) {
+    setCards((current) => current.map((card) => card.id === id ? { ...card, column } : card))
+    setToast('Card atualizado com sucesso')
+    window.setTimeout(() => setToast(''), 2400)
+  }
+
+  function duplicateCard(card: Card) {
+    setCards((current) => [...current, { ...card, id: crypto.randomUUID(), title: `${card.title} (cópia)`, tasks: card.tasks.map((task) => ({ ...task, id: crypto.randomUUID() })) }])
+    setToast('Demanda duplicada')
+    window.setTimeout(() => setToast(''), 2400)
+  }
+
+  function deleteCard(id: string) {
+    setCards((current) => current.filter((card) => card.id !== id))
+    setSelected((current) => current?.id === id ? null : current)
+    setToast('Demanda excluída')
+    window.setTimeout(() => setToast(''), 2400)
+  }
+
+  function renameColumn(id: string) {
+    const column = columns.find((item) => item.id === id)
+    const title = window.prompt('Nome da coluna', column?.title)
+    if (!title?.trim()) return
+    setColumns((current) => current.map((item) => item.id === id ? { ...item, title: title.trim() } : item))
+    setToast('Coluna renomeada')
+    window.setTimeout(() => setToast(''), 2400)
+  }
+
+  function deleteColumn(id: string) {
+    if (cards.some((card) => card.column === id)) {
+      setToast('Mova as demandas antes de excluir a coluna')
+      window.setTimeout(() => setToast(''), 2400)
+      return
+    }
+    if (columns.length <= 1) return
+    setColumns((current) => current.filter((column) => column.id !== id))
+    setToast('Coluna excluída')
+    window.setTimeout(() => setToast(''), 2400)
+  }
+
+  function createCard(title: string, discipline: string) {
+    setCards((current) => [...current, { id: crypto.randomUUID(), title, description: '', discipline, type: 'trabalho', priority: 'media', due: '2026-11-30', column: 'todo', tasks: [], labels: [] }])
+    setShowNew(false)
+    setToast('Nova demanda criada')
+    window.setTimeout(() => setToast(''), 2400)
+  }
+
+  function resizeSidebar(event: React.PointerEvent<HTMLDivElement>) {
+    event.currentTarget.setPointerCapture(event.pointerId)
+    const startX = event.clientX
+    const startWidth = sidebarWidth
+    const move = (moveEvent: PointerEvent) => setSidebarWidth(Math.min(360, Math.max(210, startWidth + moveEvent.clientX - startX)))
+    const stop = () => {
+      window.removeEventListener('pointermove', move)
+      window.removeEventListener('pointerup', stop)
+    }
+    window.addEventListener('pointermove', move)
+    window.addEventListener('pointerup', stop)
+  }
+
+  async function signOut() {
+    if (!supabase) {
+      setAuthenticated(false)
+      return
+    }
+    const { error } = await supabase.auth.signOut()
+    if (error) {
+      setToast(`Não foi possível sair: ${error.message}`)
+      window.setTimeout(() => setToast(''), 3000)
+      return
+    }
+    setToast('Você saiu da conta')
+    window.setTimeout(() => setToast(''), 2400)
+  }
+
+  const displayName = user?.user_metadata?.nome || user?.user_metadata?.name || user?.email?.split('@')[0] || 'Usuário'
+  const displayEmail = user?.email || 'Sessão local'
+  const initials = displayName.slice(0, 2).toUpperCase()
+
+  if (!sessionReady) return <div className="auth-loading">Carregando sua sessão...</div>
+  if (!authenticated) return <AuthScreen />
+
+  return (
+    <div className={`app ${dark ? 'dark' : ''} ${activeView === 'board' ? 'board-layout' : ''}`}>
+      <aside className={`sidebar ${sidebar ? 'open' : ''} ${sidebarCollapsed ? 'collapsed' : ''}`} style={{ '--sidebar-width': `${sidebarWidth}px` } as React.CSSProperties}>
+        <div className="brand"><div className="brand-mark">U</div><div className="brand-copy"><strong>UGD</strong><small>Unisc Demandas</small></div><button className="icon-btn mobile-close" onClick={() => setSidebar(false)}><X size={18} /></button><button className="icon-btn sidebar-toggle" onClick={() => setSidebarCollapsed(!sidebarCollapsed)} title={sidebarCollapsed ? 'Abrir menu lateral' : 'Recolher menu lateral'}>{sidebarCollapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}</button></div>
+        <div className="workspace"><span className="workspace-dot" /> 2026/2 <ChevronDown size={15} /></div>
+        <nav>
+          <button className={activeView === 'overview' ? 'nav-item active' : 'nav-item'} onClick={() => { setActiveView('overview'); setSidebar(false) }}><LayoutDashboard size={18} /><span>Visão geral</span></button>
+          <button className={activeView === 'board' ? 'nav-item active' : 'nav-item'} onClick={() => { setActiveView('board'); setSidebar(false) }}><Columns3 size={18} /><span>Kanban</span></button>
+          <button className={activeView === 'calendar' ? 'nav-item active' : 'nav-item'} onClick={() => { setActiveView('calendar'); setSidebar(false) }}><CalendarDays size={18} /><span>Calendário</span></button>
+          <div className="nav-label">Quadros</div>
+          <button className="nav-item active-board"><Columns3 size={18} /><span>Demandas 2026/2</span><MoreHorizontal size={16} className="push" /></button>
+          <button className="nav-item" onClick={() => { const name = window.prompt('Nome do novo quadro'); if (name?.trim()) setToast(`Quadro "${name.trim()}" criado`) }}><Plus size={18} /><span>Novo quadro</span></button>
+        </nav><div className="sidebar-user"><div className="avatar">{initials}</div><div className="sidebar-user-info"><strong>{displayName}</strong><small>{displayEmail}</small></div><button className="logout-btn" onClick={signOut}><LogOut size={15} /><span>Sair</span></button></div><div className="sidebar-resize" onPointerDown={resizeSidebar} title="Arraste para ajustar a largura do menu" />
+        <div className="sidebar-bottom">
+          <button className="nav-item"><Settings size={18} /><span>Configurações</span></button>
+          <button className="nav-item"><CircleHelp size={18} /><span>Ajuda</span></button>
+          <div className="profile"><div className="avatar">{initials}</div><div><strong>{displayName}</strong><small>{displayEmail}</small></div><button className="icon-btn push" onClick={signOut} title="Sair da conta" aria-label="Sair da conta"><LogOut size={17} /></button></div>
+        </div>
+      </aside>
+      <main>
+        <header className="topbar">
+          <button className="icon-btn mobile-menu" onClick={() => setSidebar(true)}><Menu size={21} /></button>
+          <div className="breadcrumb"><span>Quadros</span><span>/</span><strong>Demandas 2026/2</strong></div>
+          <div className="top-actions"><button className="icon-btn"><Bell size={19} /></button><button className="icon-btn" onClick={() => setDark(!dark)}>{dark ? <Sun size={19} /> : <Moon size={19} />}</button><div className="top-user"><div className="avatar small">{initials}</div><div><strong>{displayName}</strong><small>{displayEmail}</small></div><button className="icon-btn" onClick={signOut} title="Sair da conta" aria-label="Sair da conta"><LogOut size={17} /></button></div></div>
+        </header>
+        <section className={`content ${activeView}-content`}>
+          {activeView !== 'board' && <div className="page-heading"><div><div className="eyebrow"><span className="status-dot" /> SEMESTRE 2026/2</div><h1>{activeView === 'overview' ? 'Visão geral' : 'Calendário'}</h1><p>{activeView === 'overview' ? 'Acompanhe o andamento do seu semestre em um só lugar.' : 'Demandas 2026/2 · organize suas entregas com clareza.'}</p></div><div className="heading-actions">{activeView === 'overview' && <button className="secondary-btn" onClick={() => setActiveView('board')}><Columns3 size={17} /> Abrir Kanban</button>}{activeView === 'calendar' && <button className="secondary-btn" onClick={() => setActiveView('board')}><Columns3 size={17} /> Ver Kanban</button>}<button className="primary-btn" onClick={() => setShowNew(true)}><Plus size={18} /> Nova demanda</button></div></div>}
+          {activeView === 'overview' && <div className="stats"><div><span className="stat-icon purple"><Target size={17} /></span><div><strong>{cards.length}</strong><small>Demandas totais</small></div></div><div><span className="stat-icon orange"><Clock3 size={17} /></span><div><strong>{cards.filter((c) => daysUntil(c.due) <= 7 && daysUntil(c.due) >= 0).length}</strong><small>Próximos 7 dias</small></div></div><div><span className="stat-icon green"><Check size={17} /></span><div><strong>{cards.filter((c) => c.column === 'done').length}</strong><small>Concluídas</small></div></div><div><span className="stat-icon blue"><Archive size={17} /></span><div><strong>{Math.round(cards.reduce((sum, c) => sum + c.tasks.filter((t) => t.done).length / Math.max(c.tasks.length, 1), 0) / cards.length * 100)}%</strong><small>Progresso médio</small></div></div></div>}
+          {activeView === 'board' && <div className="kanban-topbar"><div><strong>Demandas 2026/2</strong><span>Quadro Kanban</span></div><div className="kanban-filters"><div className="search"><Search size={16} /><input placeholder="Buscar demandas..." value={search} onChange={(e) => setSearch(e.target.value)} /></div><select value={activeColumn} onChange={(e) => setActiveColumn(e.target.value)}><option value="all">Todas as colunas</option>{columns.map((column) => <option key={column.id} value={column.id}>{column.title}</option>)}</select><select value={priority} onChange={(e) => setPriority(e.target.value as 'all' | Priority)}><option value="all">Todas prioridades</option><option value="alta">Alta prioridade</option><option value="media">Média prioridade</option><option value="baixa">Baixa prioridade</option></select><button className={`filter-btn ${showFilters ? 'active' : ''}`} onClick={() => setShowFilters((current) => !current)} aria-expanded={showFilters}><Filter size={16} /> Filtros</button></div></div>}
+          {activeView === 'calendar' && <div className="toolbar"><div className="view-tabs"><button className="selected" onClick={() => setActiveView('calendar')}><CalendarDays size={16} /> Calendário</button><button onClick={() => setActiveView('board')}><Columns3 size={16} /> Kanban</button></div><div className="filters"><div className="search"><Search size={16} /><input placeholder="Buscar demandas..." value={search} onChange={(e) => setSearch(e.target.value)} /></div><select value={activeColumn} onChange={(e) => setActiveColumn(e.target.value)}><option value="all">Todas as colunas</option>{columns.map((column) => <option key={column.id} value={column.id}>{column.title}</option>)}</select><select value={priority} onChange={(e) => setPriority(e.target.value as 'all' | Priority)}><option value="all">Todas prioridades</option><option value="alta">Alta prioridade</option><option value="media">Média prioridade</option><option value="baixa">Baixa prioridade</option></select><button className={`filter-btn ${showFilters ? 'active' : ''}`} onClick={() => setShowFilters((current) => !current)} aria-expanded={showFilters}><Filter size={16} /> Filtros</button></div></div>}
+          {showFilters && activeView !== 'overview' && <div className="advanced-filters"><label>Tipo<select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value as 'all' | CardType)}><option value="all">Todos os tipos</option>{Object.entries(typeLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label><label>Disciplina<select value={disciplineFilter} onChange={(e) => setDisciplineFilter(e.target.value)}><option value="all">Todas as disciplinas</option>{disciplines.map((discipline) => <option key={discipline} value={discipline}>{discipline}</option>)}</select></label><button className="clear-filters" onClick={clearFilters}>Limpar filtros</button></div>}
+          {activeView === 'overview' && <Overview cards={cards} onSelect={setSelected} onOpenBoard={() => setActiveView('board')} />}
+          {activeView === 'board' && <Board columns={columns} cards={filteredCards} onMove={moveCard} onSelect={setSelected} onEdit={setSelected} onDuplicate={duplicateCard} onDelete={deleteCard} onRenameColumn={renameColumn} onDeleteColumn={deleteColumn} onAdd={() => setShowNew(true)} onAddColumn={() => { const title = window.prompt('Nome da nova coluna'); if (title?.trim()) setColumns((current) => [...current, { id: crypto.randomUUID(), title: title.trim(), color: '#8b5cf6' }]) }} onReorder={(id, direction) => setColumns((current) => { const index = current.findIndex((column) => column.id === id); const target = direction === 'up' ? index - 1 : index + 1; if (index < 0 || target < 0 || target >= current.length) return current; const next = [...current]; [next[index], next[target]] = [next[target], next[index]]; return next })} />}
+          {activeView === 'calendar' && <CalendarView cards={filteredCards} onSelect={setSelected} />}
+        </section>
+      </main>
+      {selected && <CardModal card={selected} onClose={() => setSelected(null)} onSave={(updated) => { setCards((current) => current.map((card) => card.id === updated.id ? updated : card)); setSelected(updated); setToast('Alterações salvas') }} />}
+      {showNew && <NewCardModal onClose={() => setShowNew(false)} onCreate={createCard} />}
+      {toast && <div className="toast"><Check size={16} /> {toast}</div>}
+    </div>
+  )
+}
+
+function AuthScreen() {
+  const [mode, setMode] = useState<'login' | 'signup'>('login')
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [name, setName] = useState('')
+  const [message, setMessage] = useState('')
+  const [loading, setLoading] = useState(false)
+
+  async function submit(event: React.FormEvent) {
+    event.preventDefault()
+    if (!supabase) return
+    setLoading(true)
+    setMessage('')
+    const result = mode === 'login'
+      ? await supabase.auth.signInWithPassword({ email, password })
+      : await supabase.auth.signUp({ email, password, options: { data: { nome: name } } })
+    setLoading(false)
+    if (result.error) setMessage(result.error.message)
+    else {
+      if (mode === 'login') window.localStorage.setItem('ugd-login-success', 'true')
+      setMessage(mode === 'signup' ? 'Cadastro criado. Verifique seu e-mail para continuar.' : '')
+    }
+  }
+
+  return <div className="auth-page"><div className="auth-card"><div className="brand auth-brand"><div className="brand-mark">U</div><div><strong>UGD</strong><small>Unisc Demandas</small></div></div><div className="eyebrow">{mode === 'login' ? 'BEM-VINDO DE VOLTA' : 'COMECE AGORA'}</div><h1>{mode === 'login' ? 'Entre no seu espaço.' : 'Crie sua conta.'}</h1><p className="auth-subtitle">Organize suas demandas acadêmicas com clareza.</p><form onSubmit={submit}>{mode === 'signup' && <label>Nome<input required value={name} onChange={(e) => setName(e.target.value)} placeholder="Seu nome" /></label>}<label>E-mail<input required type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="voce@unisc.br" /></label><label>Senha<input required minLength={6} type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" /></label>{message && <div className="auth-message">{message}</div>}<button className="primary-btn auth-submit" disabled={loading}>{loading ? 'Aguarde...' : mode === 'login' ? 'Entrar' : 'Criar conta'}</button></form><button className="auth-switch" onClick={() => { setMode(mode === 'login' ? 'signup' : 'login'); setMessage('') }}>{mode === 'login' ? 'Ainda não tenho uma conta' : 'Já tenho uma conta'}</button>{mode === 'login' && <button className="auth-forgot" onClick={async () => { if (!supabase || !email) { setMessage('Informe seu e-mail para recuperar a senha.'); return }; const { error } = await supabase.auth.resetPasswordForEmail(email); setMessage(error?.message ?? 'Link de recuperação enviado.') }}>Esqueci minha senha</button>}</div></div>
+}
+
+function Overview({ cards, onSelect, onOpenBoard }: { cards: Card[]; onSelect: (card: Card) => void; onOpenBoard: () => void }) {
+  const upcoming = [...cards].sort((a, b) => a.due.localeCompare(b.due)).slice(0, 3)
+  return <div className="overview"><div className="overview-grid"><section className="overview-panel focus-panel"><div className="panel-heading"><div><span className="eyebrow">ACOMPANHAMENTO</span><h2>Seu semestre em foco</h2></div><button className="secondary-btn" onClick={onOpenBoard}>Ver todas <Columns3 size={15} /></button></div><div className="focus-progress"><div className="focus-ring"><strong>{Math.round(cards.filter((card) => card.column === 'done').length / cards.length * 100)}%</strong><small>concluído</small></div><div><h3>Você está indo bem!</h3><p>Continue avançando nas suas demandas para manter o ritmo.</p><div className="progress large"><span style={{ width: `${cards.filter((card) => card.column === 'done').length / cards.length * 100}%` }} /></div></div></div></section><section className="overview-panel"><div className="panel-heading"><div><span className="eyebrow">PRÓXIMAS ENTREGAS</span><h2>Fique de olho</h2></div><Clock3 size={18} className="muted-icon" /></div><div className="upcoming-list">{upcoming.map((card) => <button className="upcoming-item" key={card.id} onClick={() => onSelect(card)}><span className={`upcoming-date ${card.priority}`}><strong>{new Date(`${card.due}T12:00:00`).getDate()}</strong><small>nov</small></span><span><strong>{card.title}</strong><small>{card.discipline}</small></span><ChevronDown size={16} className="rotate-chevron" /></button>)}</div></section></div><section className="overview-panel quick-panel"><div className="panel-heading"><div><span className="eyebrow">ATALHOS</span><h2>Continue de onde parou</h2></div></div><div className="quick-actions"><button onClick={onOpenBoard}><Columns3 size={20} /><span><strong>Organizar Kanban</strong><small>Veja suas colunas e mova demandas</small></span><ChevronDown size={17} className="rotate-chevron" /></button><button onClick={() => onSelect(upcoming[0])}><CalendarDays size={20} /><span><strong>Revisar próxima entrega</strong><small>{upcoming[0]?.title}</small></span><ChevronDown size={17} className="rotate-chevron" /></button></div></section></div>
+}
+
+function Board({ columns, cards, onMove, onSelect, onEdit, onDuplicate, onDelete, onRenameColumn, onDeleteColumn, onAdd, onAddColumn, onReorder }: { columns: typeof defaultColumns; cards: Card[]; onMove: (id: string, column: string) => void; onSelect: (card: Card) => void; onEdit: (card: Card) => void; onDuplicate: (card: Card) => void; onDelete: (id: string) => void; onRenameColumn: (id: string) => void; onDeleteColumn: (id: string) => void; onAdd: () => void; onAddColumn: () => void; onReorder: (id: string, direction: 'up' | 'down') => void }) {
+  const [openColumnMenu, setOpenColumnMenu] = useState<string | null>(null)
+  return <div className="board">{columns.map((column, index) => <div className="kanban-column" key={column.id}><div className="column-color-band" style={{ background: column.color }} /><div className="column-heading"><div><strong>{column.title}</strong><span className="count">{cards.filter((card) => card.column === column.id).length}</span></div><div className="column-actions"><button className="icon-btn" onClick={() => onReorder(column.id, 'up')} disabled={index === 0} title="Mover coluna para a esquerda"><ArrowLeft size={14} /></button><button className="icon-btn" onClick={() => onReorder(column.id, 'down')} disabled={index === columns.length - 1} title="Mover coluna para a direita"><ArrowRight size={14} /></button><div className="card-menu-wrap"><button className="icon-btn" title="Opções da coluna" aria-expanded={openColumnMenu === column.id} onClick={() => setOpenColumnMenu((current) => current === column.id ? null : column.id)}><MoreHorizontal size={18} /></button>{openColumnMenu === column.id && <div className="card-menu column-menu"><button onClick={() => { setOpenColumnMenu(null); onRenameColumn(column.id) }}>Renomear coluna</button><button className="danger" onClick={() => { setOpenColumnMenu(null); onDeleteColumn(column.id) }}>Excluir coluna</button></div>}</div></div></div><div className="cards">{cards.filter((card) => card.column === column.id).map((card) => <CardItem key={card.id} card={card} onSelect={() => onSelect(card)} onMove={onMove} onEdit={onEdit} onDuplicate={onDuplicate} onDelete={onDelete} />)}<button className="add-card" onClick={onAdd}><Plus size={16} /> Adicionar demanda</button></div></div>)}<button className="add-column" onClick={onAddColumn}><Plus size={17} /> Adicionar coluna</button></div>
+}
+
+function CardItem({ card, onSelect, onMove, onEdit, onDuplicate, onDelete }: { card: Card; onSelect: () => void; onMove: (id: string, column: string) => void; onEdit: (card: Card) => void; onDuplicate: (card: Card) => void; onDelete: (id: string) => void }) {
+  const [menuOpen, setMenuOpen] = useState(false)
+  const done = card.tasks.filter((task) => task.done).length
+  const remaining = daysUntil(card.due)
+  return <article className="card-item" onClick={onSelect}><div className="card-top"><span className={`type-chip ${card.type}`}>{typeLabels[card.type]}</span><div className="card-menu-wrap"><button className="icon-btn" aria-label="Opções da demanda" aria-expanded={menuOpen} onClick={(event) => { event.stopPropagation(); setMenuOpen((current) => !current) }}><MoreHorizontal size={17} /></button>{menuOpen && <div className="card-menu" onClick={(event) => event.stopPropagation()}><button onClick={() => { setMenuOpen(false); onEdit(card) }}>Editar demanda</button><button onClick={() => { setMenuOpen(false); onDuplicate(card) }}>Duplicar demanda</button><button className="danger" onClick={() => { setMenuOpen(false); if (window.confirm('Excluir esta demanda?')) onDelete(card.id) }}>Excluir demanda</button></div>}</div></div><h3>{card.title}</h3>{card.discipline && <p className="discipline">{card.discipline}</p>}<div className="card-meta"><span className={`priority ${card.priority}`}><i /> {priorityLabels[card.priority]}</span><span className={`due ${remaining < 0 ? 'late' : remaining <= 2 ? 'soon' : ''}`}><Clock3 size={13} /> {new Date(`${card.due}T12:00:00`).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}</span></div>{card.tasks.length > 0 && <div className="progress-wrap"><div className="progress-label"><span>Progresso</span><span>{done}/{card.tasks.length}</span></div><div className="progress"><span style={{ width: `${done / card.tasks.length * 100}%` }} /></div></div>}<div className="card-footer"><div className="mini-avatar">PR</div><select value={card.column} onClick={(event) => event.stopPropagation()} onChange={(event) => { event.stopPropagation(); onMove(card.id, event.target.value) }} aria-label="Mover card"><option value="todo">A fazer</option><option value="doing">Em andamento</option><option value="review">Em revisão</option><option value="done">Concluído</option></select></div></article>
+}
+
+function CalendarView({ cards, onSelect }: { cards: Card[]; onSelect: (card: Card) => void }) {
+  const [month, setMonth] = useState(new Date(2026, 10, 1))
+  const [mode, setMode] = useState<'month' | 'week' | 'list'>('month')
+  const [weekOffset, setWeekOffset] = useState(2)
+  const monthName = month.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
+  const daysInMonth = new Date(month.getFullYear(), month.getMonth() + 1, 0).getDate()
+  const firstDay = new Date(month.getFullYear(), month.getMonth(), 1).getDay()
+  const days = Array.from({ length: daysInMonth }, (_, index) => index + 1)
+  const moveCalendar = (amount: number) => {
+    if (mode === 'week') {
+      setWeekOffset((current) => current + amount)
+      return
+    }
+    setMonth((current) => new Date(current.getFullYear(), current.getMonth() + amount, 1))
+    setWeekOffset(0)
+  }
+  const cardDate = (card: Card) => new Date(`${card.due}T12:00:00`)
+  const monthCards = cards.filter((card) => cardDate(card).getFullYear() === month.getFullYear() && cardDate(card).getMonth() === month.getMonth()).sort((a, b) => a.due.localeCompare(b.due))
+  const weekStart = useMemo(() => {
+    const anchor = new Date(month.getFullYear(), month.getMonth(), 1 + weekOffset * 7)
+    const mondayOffset = (anchor.getDay() + 6) % 7
+    anchor.setDate(anchor.getDate() - mondayOffset)
+    return anchor
+  }, [month, weekOffset])
+  const weekDays = Array.from({ length: 7 }, (_, index) => {
+    const date = new Date(weekStart)
+    date.setDate(weekStart.getDate() + index)
+    return date
+  })
+  const weekMonthName = weekStart.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
+  const isSameDay = (first: Date, second: Date) => first.toDateString() === second.toDateString()
+  const [today] = useState(() => new Date())
+  return <div className="calendar"><div className="calendar-header"><button onClick={() => moveCalendar(-1)} aria-label={mode === 'week' ? 'Semana anterior' : 'Mês anterior'}>‹</button><strong>{mode === 'week' ? weekMonthName : monthName}</strong><button onClick={() => moveCalendar(1)} aria-label={mode === 'week' ? 'Próxima semana' : 'Próximo mês'}>›</button><div className="calendar-modes"><button className={mode === 'month' ? 'active' : ''} onClick={() => setMode('month')}>Mês</button><button className={mode === 'week' ? 'active' : ''} onClick={() => setMode('week')}>Semana</button><button className={mode === 'list' ? 'active' : ''} onClick={() => setMode('list')}>Lista</button></div></div>{mode === 'list' && <div className="calendar-list">{monthCards.length === 0 ? <p>Nenhuma entrega neste mês.</p> : monthCards.map((card) => <button className="calendar-list-item" key={card.id} onClick={() => onSelect(card)}><span className={`upcoming-date ${card.priority}`}><strong>{cardDate(card).getDate()}</strong><small>{cardDate(card).toLocaleDateString('pt-BR', { month: 'short' })}</small></span><span><strong>{card.title}</strong><small>{card.discipline}</small></span></button>)}</div>}{mode === 'week' && <div className="calendar-week"><div className="week-grid">{weekDays.map((date) => { const dayCards = cards.filter((card) => isSameDay(cardDate(card), date)).sort((a, b) => a.due.localeCompare(b.due)); return <section className={`week-day ${isSameDay(date, today) ? 'today' : ''}`} key={date.toISOString()}><header><span>{date.toLocaleDateString('pt-BR', { weekday: 'short' }).replace('.', '')}</span><strong>{date.getDate()}</strong></header><div className="week-events">{dayCards.length === 0 ? <span className="week-empty">Sem entregas</span> : dayCards.map((card) => <button className={`week-event ${card.priority}`} key={card.id} onClick={() => onSelect(card)}><strong>{card.title}</strong><small>{card.discipline || typeLabels[card.type]}</small></button>)}</div></section> })}</div></div>}{mode === 'month' && <><div className="weekdays">{['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'].map((day) => <span key={day}>{day}</span>)}</div><div className="month-grid">{Array.from({ length: firstDay }).map((_, index) => <span key={`empty-${index}`} />)}{days.map((day) => { const dayCards = cards.filter((card) => { const date = cardDate(card); return date.getFullYear() === month.getFullYear() && date.getMonth() === month.getMonth() && date.getDate() === day }); const date = new Date(month.getFullYear(), month.getMonth(), day); return <div className={`day ${isSameDay(date, today) ? 'today' : ''}`} key={day}><span>{day}</span>{dayCards.map((card) => <button className={`event ${card.priority}`} key={card.id} onClick={() => onSelect(card)}>{card.title}</button>)}</div> })}</div></>}</div>
+}
+
+function CardModal({ card, onClose, onSave }: { card: Card; onClose: () => void; onSave: (card: Card) => void }) {
+  const [draft, setDraft] = useState(card)
+  const [newTask, setNewTask] = useState('')
+  function addTask() { if (!newTask.trim()) return; setDraft({ ...draft, tasks: [...draft.tasks, { id: crypto.randomUUID(), title: newTask.trim(), done: false }] }); setNewTask('') }
+  const completed = draft.tasks.filter((task) => task.done).length
+  return <div className="modal-backdrop" onMouseDown={(event) => event.target === event.currentTarget && onClose()}><div className="modal card-detail-modal"><header className="detail-header"><span className={`type-chip ${draft.type}`}>{typeLabels[draft.type]}</span><span className="detail-path">Demandas 2026/2 / {draft.title}</span><button className="icon-btn" onClick={onClose} aria-label="Fechar detalhe"><X size={20} /></button></header><div className="detail-grid"><section className="detail-left"><label className="detail-label">Título<input className="detail-title-input" value={draft.title} onChange={(e) => setDraft({ ...draft, title: e.target.value })} /></label><label>Descrição<textarea value={draft.description} onChange={(e) => setDraft({ ...draft, description: e.target.value })} rows={6} placeholder="Adicione uma descrição..." /></label><div className="detail-labels">{draft.labels.map((label) => <span key={label}>{label}</span>)}</div></section><section className="detail-center"><div className="detail-section-heading"><div><span className="eyebrow">EXECUÇÃO</span><h2>Tarefas</h2></div><strong>{completed}/{draft.tasks.length}</strong></div><div className="detail-progress"><span style={{ width: `${draft.tasks.length ? completed / draft.tasks.length * 100 : 0}%` }} /></div><div className="detail-tasks">{draft.tasks.map((task) => <div className="task-row" key={task.id}><button className={`check ${task.done ? 'checked' : ''}`} onClick={() => setDraft({ ...draft, tasks: draft.tasks.map((item) => item.id === task.id ? { ...item, done: !item.done } : item) })}>{task.done && <Check size={13} />}</button><span className={task.done ? 'completed' : ''}>{task.title}</span><button className="icon-btn" onClick={() => setDraft({ ...draft, tasks: draft.tasks.filter((item) => item.id !== task.id) })}><X size={14} /></button></div>)}</div><div className="add-task"><input placeholder="Adicionar tarefa..." value={newTask} onChange={(e) => setNewTask(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && addTask()} /><button className="secondary-btn" onClick={addTask}><Plus size={15} /> Adicionar</button></div><div className="activity"><div className="detail-section-heading"><div><span className="eyebrow">HISTÓRICO</span><h2>Atividade</h2></div></div><div className="activity-item"><span className="activity-dot" /><div><strong>Demanda criada</strong><small>Você adicionou esta demanda ao quadro</small></div></div><div className="activity-item"><span className="activity-dot purple-dot" /><div><strong>Última atualização</strong><small>Informações mantidas no quadro 2026/2</small></div></div></div></section><aside className="detail-right"><div className="detail-section-heading"><div><span className="eyebrow">DETALHES</span><h2>Informações</h2></div></div><label>Disciplina<input value={draft.discipline} onChange={(e) => setDraft({ ...draft, discipline: e.target.value })} /></label><label>Entrega<input type="date" value={draft.due} onChange={(e) => setDraft({ ...draft, due: e.target.value })} /></label><label>Tipo<select value={draft.type} onChange={(e) => setDraft({ ...draft, type: e.target.value as CardType })}>{Object.entries(typeLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label><label>Prioridade<select value={draft.priority} onChange={(e) => setDraft({ ...draft, priority: e.target.value as Priority })}>{Object.entries(priorityLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label><div className="detail-owner"><div className="mini-avatar">PR</div><div><strong>Responsável</strong><small>Pablo Renan</small></div></div></aside></div><footer className="detail-footer"><button className="secondary-btn" onClick={onClose}>Cancelar</button><button className="primary-btn" onClick={() => onSave(draft)}>Salvar alterações</button></footer></div></div>
+}
+
+function NewCardModal({ onClose, onCreate }: { onClose: () => void; onCreate: (title: string, discipline: string) => void }) {
+  const [title, setTitle] = useState('')
+  const [discipline, setDiscipline] = useState('')
+  return <div className="modal-backdrop"><div className="modal small-modal"><div className="modal-header"><div><span className="eyebrow">NOVA DEMANDA</span><h2>O que precisa ser feito?</h2></div><button className="icon-btn" onClick={onClose}><X size={20} /></button></div><label>Título<input autoFocus placeholder="Ex.: Lista de exercícios 3" value={title} onChange={(e) => setTitle(e.target.value)} /></label><label>Disciplina<input placeholder="Ex.: Estruturas de Dados" value={discipline} onChange={(e) => setDiscipline(e.target.value)} /></label><div className="modal-actions"><button className="secondary-btn" onClick={onClose}>Cancelar</button><button className="primary-btn" disabled={!title.trim()} onClick={() => onCreate(title, discipline)}>Criar demanda</button></div></div></div>
+}
+
+export default App
