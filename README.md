@@ -5,7 +5,7 @@ SPA em português para organizar demandas acadêmicas em Kanban e calendário. O
 ## Rodar localmente
 
 1. Crie um projeto em [supabase.com](https://supabase.com).
-2. No SQL Editor, execute `supabase/migrations/0001_init.sql`.
+2. No SQL Editor, execute as migrations `supabase/migrations/0001_init.sql`, `supabase/migrations/0002_create_default_board.sql`, `supabase/migrations/0003_cascade_column_deletion.sql`, `supabase/migrations/0004_fix_board_permissions.sql` e `supabase/migrations/0005_backfill_missing_columns.sql`, nesta ordem.
 3. Copie `.env.example` para `.env` e preencha `VITE_SUPABASE_URL` e `VITE_SUPABASE_ANON_KEY`. Apenas a chave `anon`/publishable deve chegar ao navegador; nunca use `service_role`.
 4. Em Authentication > URL Configuration, configure `Site URL` como `http://localhost:5173` e adicione `http://localhost:5173/**` às Redirect URLs.
 5. Execute:
