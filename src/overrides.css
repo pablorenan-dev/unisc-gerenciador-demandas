@@ -65,3 +65,71 @@
 .dark .quick-actions button{background:#232c3e}
 .app:not(.board-layout) .topbar{display:none}
 @media(max-width:720px){.sidebar{width:242px}.sidebar.collapsed{width:242px}.sidebar-resize,.sidebar-toggle{display:none}.overview-grid{grid-template-columns:1fr}.quick-actions{grid-template-columns:1fr}.focus-progress{gap:15px}.focus-progress p{max-width:180px}.progress.large{width:100%}.kanban-topbar{align-items:flex-start;gap:10px}.kanban-topbar>div:first-child{flex-direction:column;gap:2px}.kanban-actions{flex-shrink:0}.compact-btn,.compact-primary{padding:7px}.compact-btn{font-size:0}.compact-btn svg{margin:0}}
+
+/* Neutral graphite dark theme */
+.dark{background:#171717;color:#e5e5e5}
+.dark .sidebar,.dark .topbar{background:#202020;border-color:#343434}
+.dark .brand strong,.dark .breadcrumb strong,.dark .page-heading h1{color:#f3f3f3}
+.dark .brand small,.dark .profile small,.dark .breadcrumb,.dark .page-heading p,.dark .stats small{color:#a1a1a1}
+.dark .brand-mark{background:#d4d4d4;color:#202020}
+.dark .workspace,.dark .stats>div,.dark .overview-panel,.dark .calendar,.dark .card-item{background:#242424;border-color:#383838}
+.dark .workspace,.dark .nav-item.active-board{color:#e5e5e5}
+.dark .workspace-dot{background:#bdbdbd}
+.dark .nav-item{color:#a3a3a3}
+.dark .nav-item:hover,.dark .nav-item.active{color:#f5f5f5;background:#353535}
+.dark .nav-item.active-board{background:#2b2b2b}
+.dark .nav-label,.dark .eyebrow{color:#999}
+.dark .profile,.dark .toolbar{border-color:#353535}
+.dark .page-heading h1,.dark .panel-heading h2,.dark .focus-progress h3,.dark .upcoming-item,.dark .quick-actions strong,.dark .card-item h3{color:#ededed}
+.dark .primary-btn,.dark .compact-primary{background:#d4d4d4;border-color:#d4d4d4;color:#202020;box-shadow:none}
+.dark .primary-btn:hover,.dark .compact-primary:hover{background:#f0f0f0;border-color:#f0f0f0}
+.dark .secondary-btn,.dark .compact-btn,.dark .filters select,.dark .filter-btn,.dark .search{background:#2b2b2b;border-color:#454545;color:#c7c7c7}
+.dark .search input,.dark .filters select{background:#2b2b2b;color:#ededed}
+.dark .search input::placeholder{color:#858585}
+.dark .view-tabs button.selected{background:#303030;color:#f0f0f0}
+.dark .kanban-column{background:#252525;border-color:#3c3c3c}
+.dark .card-item{background:#2b2b2b;border-color:#404040}
+.dark .card-item:hover{box-shadow:0 8px 20px #00000055}
+.dark .type-chip,.dark .upcoming-date{background:#383838;color:#d4d4d4}
+.dark .count{background:#3a3a3a;color:#c8c8c8}
+.dark .progress{background:#444}
+.dark .progress span{background:#c7c7c7}
+.dark .quick-actions button{background:#2b2b2b;border-color:#404040;color:#d4d4d4}
+.dark .upcoming-item{border-color:#3a3a3a}
+.dark .icon-btn{color:#a8a8a8}
+.dark .icon-btn:hover{background:#353535;color:#f0f0f0}
+.dark.board-layout .sidebar,.dark:not(.board-layout) .sidebar{background:#202020;color:#f1f1f1;border-color:#343434}
+.dark.board-layout .sidebar .brand,.dark:not(.board-layout) .sidebar .brand{border-color:#3a3a3a}
+.dark.board-layout .sidebar .brand-mark{background:#d4d4d4;color:#202020}
+.dark.board-layout .sidebar .brand-mark,.dark:not(.board-layout) .sidebar .brand-mark{background:#d4d4d4;color:#202020}
+.dark.board-layout .sidebar .nav-item,.dark:not(.board-layout) .sidebar .nav-item{color:#a3a3a3}
+.dark.board-layout .sidebar .nav-item.active,.dark:not(.board-layout) .sidebar .nav-item.active{color:#f5f5f5;background:#353535}
+.dark.board-layout .sidebar .nav-item.active-board,.dark:not(.board-layout) .sidebar .active-board{background:#2b2b2b;color:#e5e5e5}
+.dark.board-layout .kanban-filters select,.dark.board-layout .kanban-filters .filter-btn,.dark.board-layout .kanban-filters .search,.dark.board-layout .kanban-filters .search input{background:#2b2b2b;border-color:#454545;color:#d0d0d0}
+.dark.board-layout .advanced-filters{background:#252525;border-color:#3c3c3c}
+.dark.board-layout .advanced-filters select{background:#2b2b2b;border-color:#454545;color:#d0d0d0}
+.dark.board-layout .kanban-column{background:#252525;border-color:#3c3c3c}
+.dark.board-layout .card-item{background:#2b2b2b;border-color:#404040}
+.dark.board-layout .card-footer select{background:#2b2b2b;color:#c7c7c7}
+.dark.board-layout .add-column{background:#252525;border-color:#555;color:#c7c7c7}
+
+.auth-page{position:relative;isolation:isolate;overflow:hidden;background:#171717}
+.auth-page::before{content:'';position:absolute;inset:0;background:radial-gradient(circle at 50% 25%,#3b3b3b 0,#242424 32%,#171717 72%);z-index:-2}
+.auth-card{position:relative;z-index:2;background:#262626;border-color:#414141;box-shadow:0 24px 70px #00000080}
+.auth-card h1{color:#f2f2f2}
+.auth-brand strong{color:#fff}
+.auth-subtitle,.auth-card label{color:#a7a7a7}
+.auth-card input{background:#1d1d1d;border-color:#474747;color:#f1f1f1}
+.auth-card input::placeholder{color:#777}
+.auth-card input:focus{border-color:#c5c5c5;box-shadow:0 0 0 3px #ffffff18}
+.auth-brand .brand-mark{overflow:hidden;background:#d4d4d4}
+.auth-brand .brand-mark img{width:100%;height:100%;object-fit:cover;object-position:50% 25%}
+.auth-switch{color:#d0d0d0}
+.auth-forgot{color:#999}
+.auth-message{background:#3a3328;color:#e5c58b}
+.auth-cat{position:absolute;z-index:1;left:calc(50% + 120px);top:50%;width:210px;height:285px;transform:translate(-112px,-44%) rotate(8deg);filter:drop-shadow(0 18px 22px #00000080);pointer-events:none;animation:auth-cat-peek 5.2s ease-in-out infinite}
+.auth-cat img{width:100%;height:100%;object-fit:cover;object-position:50% 18%;border-radius:48% 48% 18% 18%;opacity:.9}
+@keyframes auth-cat-peek{0%,18%,100%{transform:translate(-112px,-44%) rotate(8deg)}34%,68%{transform:translate(0,-44%) rotate(8deg)}78%{transform:translate(-112px,-44%) rotate(8deg)}}
+@media(max-width:520px){.auth-cat{left:calc(50% + 70px);top:50%;width:150px;height:220px;opacity:.72;transform:translate(-78px,-42%) rotate(8deg)}.auth-card{padding:28px 24px}}
+@media(max-width:520px){@keyframes auth-cat-peek{0%,18%,100%{transform:translate(-78px,-42%) rotate(8deg)}34%,68%{transform:translate(0,-42%) rotate(8deg)}78%{transform:translate(-78px,-42%) rotate(8deg)}}}
+@media(prefers-reduced-motion:reduce){.auth-cat{animation:none;transform:translate(-112px,-44%) rotate(8deg)}}
