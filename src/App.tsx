@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   Archive,
   ArrowLeft,
@@ -29,6 +29,7 @@ import './App.css'
 import './overrides.css'
 import './kanban-theme.css'
 import { supabase } from './lib/supabase'
+import chiquinho from './assets/chiquinho.jpg'
 
 type Priority = 'baixa' | 'media' | 'alta'
 type CardType = 'trabalho' | 'prova' | 'seminario' | 'leitura' | 'projeto' | 'outro'
@@ -229,7 +230,7 @@ function App() {
           <div className="nav-label">Quadros</div>
           <button className="nav-item active-board"><Columns3 size={18} /><span>Demandas 2026/2</span><MoreHorizontal size={16} className="push" /></button>
           <button className="nav-item" onClick={() => { const name = window.prompt('Nome do novo quadro'); if (name?.trim()) setToast(`Quadro "${name.trim()}" criado`) }}><Plus size={18} /><span>Novo quadro</span></button>
-        </nav><div className="sidebar-user"><div className="avatar">{initials}</div><div className="sidebar-user-info"><strong>{displayName}</strong><small>{displayEmail}</small></div><button className="logout-btn" onClick={signOut}><LogOut size={15} /><span>Sair</span></button><span className="app-version">UGD v1.0.0</span></div><div className="sidebar-resize" onPointerDown={resizeSidebar} title="Arraste para ajustar a largura do menu" />
+        </nav><MotivationCat /><div className="sidebar-user"><div className="avatar">{initials}</div><div className="sidebar-user-info"><strong>{displayName}</strong><small>{displayEmail}</small></div><button className="logout-btn" onClick={signOut}><LogOut size={15} /><span>Sair</span></button><span className="app-version">UGD v1.0.1</span></div><div className="sidebar-resize" onPointerDown={resizeSidebar} title="Arraste para ajustar a largura do menu" />
         <div className="sidebar-bottom">
           <button className="nav-item"><Settings size={18} /><span>Configurações</span></button>
           <button className="nav-item"><CircleHelp size={18} /><span>Ajuda</span></button>
@@ -285,6 +286,141 @@ function AuthScreen() {
   }
 
   return <div className="auth-page"><div className="auth-card"><div className="brand auth-brand"><div className="brand-mark">U</div><div><strong>UGD</strong><small>Unisc Demandas</small></div></div><div className="eyebrow">{mode === 'login' ? 'BEM-VINDO DE VOLTA' : 'COMECE AGORA'}</div><h1>{mode === 'login' ? 'Entre no seu espaço.' : 'Crie sua conta.'}</h1><p className="auth-subtitle">Organize suas demandas acadêmicas com clareza.</p><form onSubmit={submit}>{mode === 'signup' && <label>Nome<input required value={name} onChange={(e) => setName(e.target.value)} placeholder="Seu nome" /></label>}<label>E-mail<input required type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="voce@unisc.br" /></label><label>Senha<input required minLength={6} type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" /></label>{message && <div className="auth-message">{message}</div>}<button className="primary-btn auth-submit" disabled={loading}>{loading ? 'Aguarde...' : mode === 'login' ? 'Entrar' : 'Criar conta'}</button></form><button className="auth-switch" onClick={() => { setMode(mode === 'login' ? 'signup' : 'login'); setMessage('') }}>{mode === 'login' ? 'Ainda não tenho uma conta' : 'Já tenho uma conta'}</button>{mode === 'login' && <button className="auth-forgot" onClick={async () => { if (!supabase || !email) { setMessage('Informe seu e-mail para recuperar a senha.'); return }; const { error } = await supabase.auth.resetPasswordForEmail(email); setMessage(error?.message ?? 'Link de recuperação enviado.') }}>Esqueci minha senha</button>}</div></div>
+}
+
+function MotivationCat() {
+  const phrases = [
+    'Você consegue!',
+    'Se organiza para estudar um pouquinho no final de semana!',
+    'Um passo de cada vez.',
+    'Seu esforço vai valer a pena!',
+    'Bora vencer essa demanda!',
+    'Você está indo muito bem!',
+    'Pausa rápida e depois foco!',
+    'Seu futuro agradece o esforço de hoje!',
+    'Estudar um pouquinho já faz diferença!',
+    'Você é capaz!',
+    'Eu confio em você!',
+    'Só se organizar e começar!',
+    'Você não precisa fazer tudo de uma vez.',
+    'Acredite mais em você.',
+    'Você já superou muita coisa.',
+    'Seu ritmo também é válido.',
+    'Errar faz parte de aprender.',
+    'Você merece reconhecer seu esforço.',
+    'Comece pelo mais simples.',
+    'Você tem mais força do que imagina.',
+    'Um pequeno progresso ainda é progresso.',
+    'Não se compare: cada pessoa tem seu tempo.',
+    'Você está aprendendo, e isso já é incrível.',
+    'Respira, organiza e vai.',
+    'Seu melhor de hoje já é suficiente.',
+    'Você pode pedir ajuda quando precisar.',
+    'Confie no processo.',
+    'Você não está atrasado: está no seu caminho.',
+    'Sua dedicação importa.',
+    'Tenha paciência com você.',
+    'Você consegue superar esta etapa.',
+    'Faça uma coisa de cada vez.',
+    'Você tem motivos para se orgulhar.',
+    'Seu esforço não passa despercebido.',
+    'Você é importante, mesmo nos dias difíceis.',
+    'Continue: você está mais perto do que pensa.',
+    'Hoje é um bom dia para recomeçar.',
+  ]
+  const [phrase, setPhrase] = useState(phrases[0])
+  const [speechVisible, setSpeechVisible] = useState(false)
+  const [happy, setHappy] = useState(false)
+  const [bigMeow, setBigMeow] = useState(false)
+  const [clickLevel, setClickLevel] = useState(0)
+  const clickStreak = useRef(0)
+  const clickLevelRef = useRef(0)
+  const streakTimer = useRef<number | null>(null)
+
+  useEffect(() => {
+    let hideTimer: number | null = null
+    const timer = window.setInterval(() => {
+      if (Math.random() > 0.4) return
+      setPhrase((current) => {
+        const options = phrases.filter((item) => item !== current)
+        return options[Math.floor(Math.random() * options.length)]
+      })
+      setSpeechVisible(true)
+      if (hideTimer) window.clearTimeout(hideTimer)
+      hideTimer = window.setTimeout(() => setSpeechVisible(false), 5200)
+    }, 5000)
+    return () => {
+      window.clearInterval(timer)
+      if (hideTimer) window.clearTimeout(hideTimer)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (clickLevel === 0) return
+    const timer = window.setTimeout(() => {
+      clickLevelRef.current = Math.max(0, clickLevelRef.current - 1)
+      setClickLevel(clickLevelRef.current)
+    }, 750)
+    return () => window.clearTimeout(timer)
+  }, [clickLevel])
+
+  function meow() {
+    clickLevelRef.current = Math.min(6, clickLevelRef.current + 1)
+    const isSuperMeow = clickLevelRef.current === 6
+    setClickLevel(clickLevelRef.current)
+    clickStreak.current += 1
+    if (streakTimer.current) window.clearTimeout(streakTimer.current)
+    streakTimer.current = window.setTimeout(() => { clickStreak.current = 0 }, 850)
+    const isBigMeow = clickStreak.current >= 3 || isSuperMeow
+    const AudioContextClass = window.AudioContext
+    if (AudioContextClass) {
+      const context = new AudioContextClass()
+      const oscillator = context.createOscillator()
+      const overtone = context.createOscillator()
+      const subTone = context.createOscillator()
+      const gain = context.createGain()
+      const overtoneGain = context.createGain()
+      const subGain = context.createGain()
+      const duration = isSuperMeow ? 1.15 : isBigMeow ? 0.74 : 0.54
+      oscillator.type = 'triangle'
+      overtone.type = 'sine'
+      subTone.type = 'sine'
+      oscillator.frequency.setValueAtTime(isSuperMeow ? 360 : 430, context.currentTime)
+      oscillator.frequency.exponentialRampToValueAtTime(isSuperMeow ? 820 : 720, context.currentTime + 0.14)
+      oscillator.frequency.exponentialRampToValueAtTime(isSuperMeow ? 230 : 290, context.currentTime + duration)
+      overtone.frequency.setValueAtTime(isSuperMeow ? 980 : 860, context.currentTime)
+      overtone.frequency.exponentialRampToValueAtTime(isSuperMeow ? 420 : 560, context.currentTime + duration)
+      subTone.frequency.setValueAtTime(180, context.currentTime)
+      subTone.frequency.exponentialRampToValueAtTime(110, context.currentTime + duration)
+      gain.gain.setValueAtTime(0.001, context.currentTime)
+      gain.gain.exponentialRampToValueAtTime(isSuperMeow ? 0.42 : isBigMeow ? 0.3 : 0.2, context.currentTime + 0.04)
+      gain.gain.exponentialRampToValueAtTime(0.001, context.currentTime + duration)
+      overtoneGain.gain.setValueAtTime(0.001, context.currentTime)
+      overtoneGain.gain.exponentialRampToValueAtTime(isSuperMeow ? 0.12 : isBigMeow ? 0.08 : 0.05, context.currentTime + 0.05)
+      overtoneGain.gain.exponentialRampToValueAtTime(0.001, context.currentTime + duration * 0.92)
+      subGain.gain.setValueAtTime(0.001, context.currentTime)
+      subGain.gain.exponentialRampToValueAtTime(isSuperMeow ? 0.16 : 0.05, context.currentTime + 0.08)
+      subGain.gain.exponentialRampToValueAtTime(0.001, context.currentTime + duration * 0.8)
+      oscillator.connect(gain)
+      overtone.connect(overtoneGain)
+      subTone.connect(subGain)
+      gain.connect(context.destination)
+      overtoneGain.connect(context.destination)
+      subGain.connect(context.destination)
+      oscillator.start()
+      overtone.start()
+      subTone.start()
+      oscillator.stop(context.currentTime + duration)
+      overtone.stop(context.currentTime + duration)
+      subTone.stop(context.currentTime + duration)
+      window.setTimeout(() => void context.close(), (duration + 0.25) * 1000)
+    }
+    setHappy(true)
+    setBigMeow(isBigMeow)
+    window.setTimeout(() => { setHappy(false); setBigMeow(false) }, isBigMeow ? 1200 : 700)
+  }
+
+  return <div className={`motivation-cat ${happy ? 'happy' : ''} ${bigMeow ? 'big-meow' : ''} cat-level-${clickLevel}`}><div className={`cat-speech ${speechVisible ? 'visible' : ''}`}>{phrase}</div><button className="cat-button" onClick={meow} aria-label="Fazer o Chiquinho miar"><img src={chiquinho} alt="Chiquinho, o gato" /></button></div>
 }
 
 function Overview({ cards, onSelect, onOpenBoard }: { cards: Card[]; onSelect: (card: Card) => void; onOpenBoard: () => void }) {

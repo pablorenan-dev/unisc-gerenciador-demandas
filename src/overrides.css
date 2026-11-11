@@ -63,4 +63,5 @@
 .dark .focus-progress p,.dark .upcoming-item small,.dark .quick-actions small{color:#aab5c7}
 .dark .upcoming-item,.dark .quick-actions button{border-color:#303c52}
 .dark .quick-actions button{background:#232c3e}
+.app:not(.board-layout) .topbar{display:none}
 @media(max-width:720px){.sidebar{width:242px}.sidebar.collapsed{width:242px}.sidebar-resize,.sidebar-toggle{display:none}.overview-grid{grid-template-columns:1fr}.quick-actions{grid-template-columns:1fr}.focus-progress{gap:15px}.focus-progress p{max-width:180px}.progress.large{width:100%}.kanban-topbar{align-items:flex-start;gap:10px}.kanban-topbar>div:first-child{flex-direction:column;gap:2px}.kanban-actions{flex-shrink:0}.compact-btn,.compact-primary{padding:7px}.compact-btn{font-size:0}.compact-btn svg{margin:0}}
