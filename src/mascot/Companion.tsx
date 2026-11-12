@@ -18,14 +18,21 @@ export function Companion({ fallbackMood = 'idle' }: { fallbackMood?: Mood }) {
   const [pets, setPets] = useState(0)
   const [petting, setPetting] = useState(false)
   const cooldown = useRef<number | null>(null)
+  const speaking = useRef(false)
+  useEffect(() => { speaking.current = Boolean(speech) }, [speech])
 
   // Conversa fiada ocasional, só quando não há nada mais importante sendo dito.
   useEffect(() => {
     if (!prefs.chatter) return
+    // A cada 15s há 50% de chance de uma frase: em média, uma a cada 30 segundos.
+    // Nunca repete a anterior nem interrompe um aviso que ainda está na tela.
+    let last = ''
     const timer = window.setInterval(() => {
-      if (document.visibilityState !== 'visible' || Math.random() > 0.35) return
-      catSay(idlePhrases[Math.floor(Math.random() * idlePhrases.length)], 'idle')
-    }, 45000)
+      if (document.visibilityState !== 'visible' || speaking.current || Math.random() > 0.5) return
+      const options = idlePhrases.filter((phrase) => phrase !== last)
+      last = options[Math.floor(Math.random() * options.length)]
+      catSay(last, 'idle', 6000)
+    }, 15000)
     return () => window.clearInterval(timer)
   }, [prefs.chatter])
 
