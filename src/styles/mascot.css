@@ -24,9 +24,8 @@
 .cat__prop--hat { top: -30%; left: 18%; width: 42%; transform: rotate(-16deg); animation: cat-jump 0.7s var(--ease) infinite; }
 @keyframes cat-jump { 0%, 100% { translate: 0 0; } 40% { translate: 0 -12%; } }
 
-/* sleepy: escurece, respira bem devagar e solta zzz */
+/* sleepy: foto dele dormindo, respirando bem devagar e soltando zzz */
 .cat--sleepy .cat__sticker { animation: cat-sleep 4.5s ease-in-out infinite; }
-.cat--sleepy img { filter: brightness(0.82) saturate(0.85); }
 .cat__prop--zzz { top: -16%; right: -10%; display: flex; align-items: flex-end; gap: 1px; color: var(--info); font-weight: 900; font-size: calc(var(--cat-size) * 0.2); }
 .cat__prop--zzz i { font-style: normal; animation: zzz 2.4s ease-in-out infinite; }
 .cat__prop--zzz i:nth-child(2) { font-size: 1.25em; animation-delay: 0.3s; }

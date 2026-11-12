@@ -2,6 +2,15 @@ import type { CSSProperties } from 'react'
 import rosto96 from '../assets/chiquinho/rosto-96.webp'
 import rosto256 from '../assets/chiquinho/rosto-256.webp'
 import rosto512 from '../assets/chiquinho/rosto-512.webp'
+import lingua96 from '../assets/chiquinho/lingua-96.webp'
+import lingua256 from '../assets/chiquinho/lingua-256.webp'
+import lingua512 from '../assets/chiquinho/lingua-512.webp'
+import zoiao96 from '../assets/chiquinho/zoiao-96.webp'
+import zoiao256 from '../assets/chiquinho/zoiao-256.webp'
+import zoiao512 from '../assets/chiquinho/zoiao-512.webp'
+import dormindo96 from '../assets/chiquinho/dormindo-96.webp'
+import dormindo256 from '../assets/chiquinho/dormindo-256.webp'
+import dormindo512 from '../assets/chiquinho/dormindo-512.webp'
 import sentado360 from '../assets/chiquinho/sentado-360.webp'
 import sentado720 from '../assets/chiquinho/sentado-720.webp'
 import type { Mood } from '../state/feedback'
@@ -15,6 +24,26 @@ type Props = {
   /** Texto alternativo. Vazio = decorativo. */
   alt?: string
   className?: string
+}
+
+/** Quatro fotos reais do Chiquinho, cada uma em três tamanhos. */
+const faces = {
+  rosto: [rosto96, rosto256, rosto512],
+  lingua: [lingua96, lingua256, lingua512],
+  zoiao: [zoiao96, zoiao256, zoiao512],
+  dormindo: [dormindo96, dormindo256, dormindo512],
+}
+
+/** Cada humor usa a foto que combina: língua de fora na alegria, zoião no aperto, soneca no vazio. */
+const faceByMood: Record<Mood, keyof typeof faces> = {
+  idle: 'rosto',
+  curious: 'rosto',
+  thinking: 'rosto',
+  happy: 'lingua',
+  party: 'lingua',
+  worried: 'zoiao',
+  oops: 'zoiao',
+  sleepy: 'dormindo',
 }
 
 /** Adereços desenhados por cima da foto real: é daí que vem a graça de cada estado. */
@@ -41,8 +70,9 @@ function Prop({ mood }: { mood: Mood }) {
 /** A figurinha do Chiquinho: foto real do gato, com moldura de adesivo e um adereço por humor. */
 export function Chiquinho({ mood = 'idle', size = 64, pose = 'rosto', alt = '', className = '' }: Props) {
   const face = pose === 'rosto'
-  const src = face ? (size <= 48 ? rosto96 : size <= 128 ? rosto256 : rosto512) : size <= 180 ? sentado360 : sentado720
-  const srcSet = face ? `${rosto96} 96w, ${rosto256} 256w, ${rosto512} 512w` : `${sentado360} 360w, ${sentado720} 720w`
+  const [small, medium, large] = faces[faceByMood[mood]]
+  const src = face ? (size <= 48 ? small : size <= 128 ? medium : large) : size <= 180 ? sentado360 : sentado720
+  const srcSet = face ? `${small} 96w, ${medium} 256w, ${large} 512w` : `${sentado360} 360w, ${sentado720} 720w`
   return (
     <span className={`cat cat--${pose} cat--${mood} ${className}`} style={{ '--cat-size': `${size}px` } as CSSProperties}>
       <span className="cat__sticker">
