@@ -18,12 +18,14 @@ Comandos de qualidade: `npm run build`, `npm run lint`, `npm run test`.
 
 ## Banco de dados
 
-Execute as migrations de `supabase/migrations/` em ordem, no SQL Editor do Supabase (`0001` a `0009`). Todas são aditivas.
+Execute as migrations de `supabase/migrations/` em ordem, no SQL Editor do Supabase (`0001` a `0010`). Todas são aditivas.
 
 A `0009_integrity_and_account_deletion.sql` adiciona:
 - trigger que impede um card de apontar para a coluna de outro quadro;
 - função `delete_my_account()` usada pelo botão "Excluir minha conta" (sem ela, o botão avisa que a função não está ativa);
 - índices de ordenação.
+
+A `0010_security_hardening.sql` fecha as funções auxiliares para visitantes sem login, fixa o autor do card em quem está logado, repete no banco os limites de tamanho dos campos e cria cotas por conta (50 quadros, 30 colunas por quadro, 2000 demandas por quadro, 200 tarefas por demanda).
 
 No painel do Supabase, em Authentication > URL Configuration:
 - `Site URL`: a URL de produção;

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { safeColor } from './api'
 import { daysUntil, dueLabel, dueTone, formatDuration, parseISODate, startOfWeek, toISODate } from './dates'
 import { briefing, buildPlan, emptyFilters, isDone, matchesFilters, summarize } from './insights'
 import { planMove } from './order'
@@ -137,5 +138,14 @@ describe('plano de foco', () => {
     const [item] = buildPlan([card({ due: '2026-11-13', tasks: [task('a', true), task('b', false), task('c', false)] })], three, now).upcoming
     expect(item.nextTask?.id).toBe('b')
     expect(item.spentSeconds).toBe(1800)
+  })
+})
+
+describe('segurança', () => {
+  it('só aceita cor hexadecimal para as colunas (o valor vai para um style)', () => {
+    expect(safeColor('#f5a524')).toBe('#f5a524')
+    expect(safeColor('url(https://exemplo.com/rastreio.png)')).toBe('#a8a29e')
+    expect(safeColor('red; background-image: url(x)')).toBe('#a8a29e')
+    expect(safeColor(null)).toBe('#a8a29e')
   })
 })

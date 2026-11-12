@@ -62,7 +62,12 @@ function toCard(row: CardRow): Card {
   }
 }
 
-const toColumn = (row: ColumnRow): Column => ({ id: row.id, title: row.nome, color: row.cor, position: row.posicao })
+/** A cor vai para um `style`; só aceitamos hexadecimal, venha de onde vier (banco ou tela). */
+export function safeColor(value: unknown): string {
+  return typeof value === 'string' && /^#[0-9a-f]{3,8}$/i.test(value) ? value : '#a8a29e'
+}
+
+const toColumn = (row: ColumnRow): Column => ({ id: row.id, title: row.nome, color: safeColor(row.cor), position: row.posicao })
 
 function cardPatchToRow(patch: CardPatch) {
   const row: Record<string, unknown> = {}
@@ -125,14 +130,14 @@ export function createSupabaseApi(client: SupabaseClient, userId: string): Api {
     },
 
     async createColumn(boardId, title, color, position) {
-      const { data } = check(await client.from('columns').insert({ board_id: boardId, nome: title, cor: color, posicao: position }).select('id, nome, cor, posicao').single())
+      const { data } = check(await client.from('columns').insert({ board_id: boardId, nome: title, cor: safeColor(color), posicao: position }).select('id, nome, cor, posicao').single())
       return toColumn(data as ColumnRow)
     },
 
     async updateColumn(id, patch) {
       const row: Record<string, unknown> = {}
       if (patch.title !== undefined) row.nome = patch.title
-      if (patch.color !== undefined) row.cor = patch.color
+      if (patch.color !== undefined) row.cor = safeColor(patch.color)
       if (patch.position !== undefined) row.posicao = patch.position
       check(await client.from('columns').update(row).eq('id', id))
     },
