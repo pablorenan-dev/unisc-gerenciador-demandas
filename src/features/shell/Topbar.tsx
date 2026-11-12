@@ -1,4 +1,4 @@
-import { CalendarDays, Check, ChevronDown, Columns3, Keyboard, LayoutDashboard, LogOut, Monitor, Moon, Pencil, Plus, Settings, Sun, Trash2, Volume2, VolumeX } from 'lucide-react'
+import { CalendarDays, Check, ChevronDown, Columns3, Keyboard, LayoutDashboard, LogOut, Monitor, Moon, Pencil, Plus, Settings, Sun, Target, Trash2, Volume2, VolumeX } from 'lucide-react'
 import { Link, NavLink } from 'react-router-dom'
 import type { Board } from '../../lib/types'
 import { Chiquinho } from '../../mascot/Chiquinho'
@@ -54,6 +54,7 @@ export function Topbar({ board, boards, base, userName, userEmail, onNewCard, on
         <NavLink to={base} end className="views__item"><LayoutDashboard size={17} aria-hidden /> Visão geral</NavLink>
         <NavLink to={`${base}/kanban`} className="views__item"><Columns3 size={17} aria-hidden /> Kanban</NavLink>
         <NavLink to={`${base}/calendario`} className="views__item"><CalendarDays size={17} aria-hidden /> Calendário</NavLink>
+        <NavLink to={`${base}/foco`} className="views__item"><Target size={17} aria-hidden /> Foco</NavLink>
       </nav>
 
       <div className="topbar__end">

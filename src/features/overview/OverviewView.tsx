@@ -1,7 +1,7 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { AlertTriangle, ArrowRight, CalendarClock, CheckCircle2, CircleDashed, Plus } from 'lucide-react'
 import { useNavigate, useOutletContext } from 'react-router-dom'
-import { dueLabel, dueTone, parseISODate } from '../../lib/dates'
+import { dueLabel, dueTone, isWeekend, parseISODate } from '../../lib/dates'
 import { briefing, summarize } from '../../lib/insights'
 import type { Card } from '../../lib/types'
 import { Chiquinho } from '../../mascot/Chiquinho'
@@ -18,6 +18,7 @@ export function OverviewView() {
   const { store, board, openCard, openNew, setFilters, clearFilters } = useOutletContext<BoardContext>()
   const { user } = useAuth()
   const navigate = useNavigate()
+  const [weekendMode] = useState(() => isWeekend() || new Date().getDay() === 5)
   const summary = useMemo(() => summarize(store.cards, store.columns), [store.cards, store.columns])
   const brief = briefing(summary)
   const focus: Card[] = [...summary.late, ...summary.today, ...summary.week].slice(0, 8)
@@ -35,7 +36,7 @@ export function OverviewView() {
         </div>
         <div className="hero__actions">
           <button type="button" className="btn btn--primary" onClick={() => openNew()}><Plus size={18} aria-hidden /> Nova demanda</button>
-          <button type="button" className="btn" onClick={() => navigate(kanban)}>Abrir Kanban <ArrowRight size={16} aria-hidden /></button>
+          <button type="button" className="btn" onClick={() => navigate(`/q/${board.id}/foco`)}>{weekendMode ? 'Plano do fim de semana' : 'Plano de foco'} <ArrowRight size={16} aria-hidden /></button>
         </div>
       </section>
 

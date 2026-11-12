@@ -110,7 +110,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
 const shortcuts: [string, string][] = [
   ['N', 'Nova demanda'],
   ['/', 'Buscar demandas'],
-  ['1  2  3', 'Visão geral, Kanban, Calendário'],
+  ['1  2  3  4', 'Visão geral, Kanban, Calendário, Foco'],
   ['Espaço', 'Pegar/soltar a demanda em foco (setas movem)'],
   ['Enter', 'Abrir a demanda em foco'],
   ['Esc', 'Fechar diálogo ou menu'],

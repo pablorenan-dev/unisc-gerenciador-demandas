@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { daysUntil, dueLabel, dueTone, formatDuration, parseISODate, startOfWeek, toISODate } from './dates'
-import { briefing, emptyFilters, isDone, matchesFilters, summarize } from './insights'
+import { briefing, buildPlan, emptyFilters, isDone, matchesFilters, summarize } from './insights'
 import { planMove } from './order'
 import { friendlyError } from './supabase'
 import type { Card, Column } from './types'
@@ -109,5 +109,33 @@ describe('mensagens de erro', () => {
   it('traduz erros de autenticação e nunca mostra a mensagem crua', () => {
     expect(friendlyError({ message: 'Invalid login credentials' })).toBe('E-mail ou senha incorretos.')
     expect(friendlyError({ message: 'relation "cards" violates row-level security policy' }, 'Não foi possível salvar.')).toBe('Não foi possível salvar.')
+  })
+})
+
+describe('plano de foco', () => {
+  const task = (id: string, done: boolean) => ({ id, title: `Passo ${id}`, done, elapsedSeconds: 600, timerStartedAt: null })
+  const three: Column[] = [columns[0], { id: 'doing', title: 'Em andamento', color: '#000', position: 1500 }, columns[1]]
+
+  it('ordena: atrasadas, depois entregas em até 7 dias, depois o que já começou', () => {
+    const plan = buildPlan([
+      card({ id: 'semana', due: '2026-11-16' }),
+      card({ id: 'atrasada', due: '2026-11-09' }),
+      card({ id: 'hoje', due: '2026-11-12', priority: 'alta' }),
+      card({ id: 'longe', due: '2026-12-20' }),
+      card({ id: 'andando', column: 'doing' }),
+      card({ id: 'pronta', due: '2026-11-13', column: 'done' }),
+    ], three, now)
+    expect(plan.overdue.map((item) => item.card.id)).toEqual(['atrasada'])
+    expect(plan.upcoming.map((item) => item.card.id)).toEqual(['hoje', 'semana'])
+    expect(plan.advance.map((item) => item.card.id)).toEqual(['andando'])
+    expect(plan.total).toBe(4)
+    expect(plan.weekend).toBe(false) // quinta-feira
+    expect(buildPlan([], three, new Date(2026, 10, 14)).weekend).toBe(true) // sábado
+  })
+
+  it('aponta o próximo passo e soma o tempo já gasto', () => {
+    const [item] = buildPlan([card({ due: '2026-11-13', tasks: [task('a', true), task('b', false), task('c', false)] })], three, now).upcoming
+    expect(item.nextTask?.id).toBe('b')
+    expect(item.spentSeconds).toBe(1800)
   })
 })

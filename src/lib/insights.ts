@@ -134,3 +134,59 @@ export const idlePhrases = [
   'Cinco minutinhos de foco e eu paro de te olhar assim.',
   'Se eu consigo sentar desse jeito, você consegue entregar isso.',
 ]
+
+/* ------------------------------ Plano de foco ------------------------------ */
+
+export type PlanItem = {
+  card: Card
+  /** Próxima tarefa ainda não feita, se o card tiver tarefas. */
+  nextTask: Card['tasks'][number] | null
+  /** Tempo já registrado nos timers das tarefas, em segundos. */
+  spentSeconds: number
+}
+
+export type Plan = {
+  weekend: boolean
+  /** Atrasadas: resolver primeiro. */
+  overdue: PlanItem[]
+  /** Com entrega de hoje até 7 dias. */
+  upcoming: PlanItem[]
+  /** Já começadas (fora da primeira coluna) sem prazo próximo: boas para adiantar. */
+  advance: PlanItem[]
+  total: number
+}
+
+const priorityRank: Record<Card['priority'], number> = { critica: 0, urgente: 1, alta: 2, media: 3, baixa: 4 }
+
+function toPlanItem(card: Card): PlanItem {
+  return {
+    card,
+    nextTask: card.tasks.find((task) => !task.done) ?? null,
+    spentSeconds: card.tasks.reduce((total, task) => total + task.elapsedSeconds, 0),
+  }
+}
+
+/**
+ * Monta o plano "o que focar agora" (pensado para sexta à noite e fim de semana):
+ * primeiro o que está atrasado, depois o que vence em até 7 dias, depois o que já está em andamento.
+ */
+export function buildPlan(cards: Card[], columns: Column[], now: Date = new Date()): Plan {
+  const open = cards.filter((card) => !isDone(card, columns))
+  const byUrgency = (a: Card, b: Card) => (a.due || '9999').localeCompare(b.due || '9999') || priorityRank[a.priority] - priorityRank[b.priority]
+  const days = (card: Card) => daysUntil(card.due, now)
+  const overdue = open.filter((card) => { const left = days(card); return left !== null && left < 0 }).sort(byUrgency)
+  const upcoming = open.filter((card) => { const left = days(card); return left !== null && left >= 0 && left <= 7 }).sort(byUrgency)
+  const taken = new Set([...overdue, ...upcoming].map((card) => card.id))
+  const firstColumn = columns[0]?.id
+  const advance = open
+    .filter((card) => !taken.has(card.id) && (card.column !== firstColumn || card.tasks.some((task) => task.done)))
+    .sort((a, b) => priorityRank[a.priority] - priorityRank[b.priority] || byUrgency(a, b))
+    .slice(0, 5)
+  return {
+    weekend: isWeekend(now) || now.getDay() === 5,
+    overdue: overdue.map(toPlanItem),
+    upcoming: upcoming.map(toPlanItem),
+    advance: advance.map(toPlanItem),
+    total: overdue.length + upcoming.length + advance.length,
+  }
+}

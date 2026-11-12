@@ -78,6 +78,16 @@ describe('fluxos principais', () => {
     expect(await screen.findByText(/Quadro vazio/)).toBeInTheDocument()
   })
 
+  it('no plano de foco, marcar o próximo passo como feito avança a demanda', async () => {
+    const user = await open()
+    await user.click(views().getByRole('link', { name: /foco/i }))
+    expect(await screen.findByRole('heading', { level: 1, name: /plano/i })).toBeInTheDocument()
+    const first = screen.getByRole('region', { name: /resolver primeiro/i })
+    expect(within(first).getByText('Lista de exercícios 3')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Marcar "Escrever relatório" como feito' }))
+    await waitFor(() => expect(screen.queryByText('Trabalho de Compiladores')).not.toBeInTheDocument())
+  })
+
   it('mostra estado vazio com o Chiquinho para quem acabou de chegar', async () => {
     await open('/', { empty: true })
     expect(await screen.findByRole('heading', { level: 1, name: /tudo vazio/i })).toBeInTheDocument()

@@ -12,6 +12,7 @@ import { useBoards, type BoardsState } from './state/board'
 // Kanban (com a biblioteca de arraste) e Calendário só são baixados quando abertos.
 const BoardView = lazy(() => import('./features/board/BoardView'))
 const CalendarView = lazy(() => import('./features/calendar/CalendarView'))
+const FocusView = lazy(() => import('./features/focus/FocusView'))
 const loadingView = <StatePanel mood="thinking" title="Abrindo…" busy />
 
 /** Área logada: carrega os quadros do usuário e entrega para as rotas filhas. */
@@ -66,6 +67,7 @@ export function AppRoutes() {
           <Route path="q/:boardId" element={<BoardLayout />}>
             <Route index element={<OverviewView />} />
             <Route path="kanban" element={<Suspense fallback={loadingView}><BoardView /></Suspense>} />
+            <Route path="foco" element={<Suspense fallback={loadingView}><FocusView /></Suspense>} />
             <Route path="calendario" element={<Suspense fallback={loadingView}><CalendarView /></Suspense>} />
           </Route>
         </Route>

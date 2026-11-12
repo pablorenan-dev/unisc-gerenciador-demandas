@@ -256,3 +256,28 @@ textarea.detail__title { padding: 6px 10px; margin-left: -10px; width: calc(100%
   .auth__card { justify-content: flex-start; padding: var(--sp-5) var(--sp-5) var(--sp-8); border-left: 0; border-top: 1px solid var(--border); }
   .brand--static .brand__name { display: inline; }
 }
+
+/* ---------------------------- Plano de foco ---------------------------- */
+.plan { display: flex; flex-direction: column; gap: var(--sp-5); max-width: 880px; margin: 0 auto; }
+.plan > * { min-width: 0; }
+.plan__section { display: flex; flex-direction: column; gap: var(--sp-3); }
+.plan__heading { display: flex; align-items: baseline; gap: var(--sp-3); }
+.plan__heading span { font-size: var(--fs-sm); color: var(--text-3); }
+.plan__list { display: flex; flex-direction: column; gap: var(--sp-2); margin: 0; padding: 0; list-style: none; }
+.plan-item { display: flex; align-items: flex-start; gap: var(--sp-4); padding: var(--sp-4); border: 1px solid var(--border); border-radius: var(--r-lg); background: var(--surface); box-shadow: var(--shadow-1); }
+.plan-item__number { flex: none; display: grid; place-items: center; width: 32px; height: 32px; border-radius: var(--r-full); background: var(--accent-soft); color: var(--accent-text); font-weight: 900; }
+.plan-item__body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: var(--sp-2); }
+.plan-item__title { padding: 0; border: 0; background: none; font-size: var(--fs-lg); font-weight: 800; line-height: 1.25; text-align: left; overflow-wrap: anywhere; }
+.plan-item__title:hover { color: var(--accent-text); }
+.plan-item__meta { display: flex; align-items: center; flex-wrap: wrap; gap: var(--sp-2) var(--sp-3); font-size: var(--fs-sm); color: var(--text-2); }
+.plan-item__time { display: inline-flex; align-items: center; gap: 4px; }
+.plan-item__step { display: flex; flex-direction: column; gap: 2px; padding: var(--sp-2) var(--sp-3); border-left: 3px solid var(--accent); border-radius: 0 var(--r-sm) var(--r-sm) 0; background: var(--bg-sunken); }
+.plan-item__label { font-size: var(--fs-xs); font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-3); }
+.plan-item__next { font-size: var(--fs-md); font-weight: 700; }
+.plan-item__actions { flex: none; display: flex; flex-direction: column; gap: var(--sp-2); }
+@media (max-width: 720px) {
+  .plan-item { flex-wrap: wrap; gap: var(--sp-3); }
+  .plan-item__body { flex-basis: calc(100% - 48px); }
+  .plan-item__actions { flex-direction: row; width: 100%; }
+  .plan-item__actions .btn { flex: 1; min-height: 44px; }
+}

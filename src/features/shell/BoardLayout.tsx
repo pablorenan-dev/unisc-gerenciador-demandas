@@ -50,7 +50,7 @@ function BoardScreen() {
   const searchRef = useRef<HTMLInputElement>(null)
 
   const base = `/q/${boardId}`
-  const view = location.pathname.endsWith('/kanban') ? 'kanban' : location.pathname.endsWith('/calendario') ? 'calendario' : 'visao-geral'
+  const view = location.pathname.endsWith('/kanban') ? 'kanban' : location.pathname.endsWith('/calendario') ? 'calendario' : location.pathname.endsWith('/foco') ? 'foco' : 'visao-geral'
 
   const setFilters = useCallback((patch: Partial<Filters>) => setFiltersState((current) => ({ ...current, ...patch })), [])
   const clearFilters = useCallback(() => setFiltersState(emptyFilters), [])
@@ -69,7 +69,7 @@ function BoardScreen() {
     if (store.status !== 'ready' || !board || greeted.current === board.id) return
     greeted.current = board.id
     // Na visão geral o resumo já está no topo da página; repetir no balão seria ruído.
-    if (view === 'visao-geral') return
+    if (view === 'visao-geral' || view === 'foco') return
     const timer = window.setTimeout(() => catSay(`${brief.title} ${brief.text}`, brief.mood, 7000), 900)
     return () => window.clearTimeout(timer)
   }, [store.status, board, brief, view])
@@ -83,10 +83,11 @@ function BoardScreen() {
       if (document.querySelector('[role="dialog"]')) return
       const go = (path: string) => { event.preventDefault(); navigate(`${base}${path}`) }
       if (event.key === 'n' || event.key === 'N') { event.preventDefault(); setNewCard({}) }
-      else if (event.key === '/') { event.preventDefault(); if (view === 'visao-geral') navigate(`${base}/kanban`); window.setTimeout(() => searchRef.current?.focus(), 30) }
+      else if (event.key === '/') { event.preventDefault(); if (view === 'visao-geral' || view === 'foco') navigate(`${base}/kanban`); window.setTimeout(() => searchRef.current?.focus(), 30) }
       else if (event.key === '1') go('')
       else if (event.key === '2') go('/kanban')
       else if (event.key === '3') go('/calendario')
+      else if (event.key === '4') go('/foco')
       else if (event.key === '?') { event.preventDefault(); setDialog('shortcuts') }
     }
     document.addEventListener('keydown', onKey)
@@ -119,7 +120,7 @@ function BoardScreen() {
         {store.status === 'error' && <StatePanel mood="oops" title="Não consegui carregar o quadro." text="Pode ser a internet. Seus dados continuam salvos; nada foi perdido."
           action={<button type="button" className="btn btn--primary" onClick={store.retry}>Tentar de novo</button>} />}
         {store.status === 'ready' && <>
-          {view !== 'visao-geral' && <FilterBar filters={filters} setFilters={setFilters} clearFilters={clearFilters} cards={store.cards} searchRef={searchRef} shown={visibleCards.length} />}
+          {(view === 'kanban' || view === 'calendario') && <FilterBar filters={filters} setFilters={setFilters} clearFilters={clearFilters} cards={store.cards} searchRef={searchRef} shown={visibleCards.length} />}
           <Outlet context={context} />
         </>}
       </main>
@@ -129,9 +130,7 @@ function BoardScreen() {
         <NavLink to={`${base}/kanban`} className="tabbar__item"><Columns3 size={22} aria-hidden /><span>Kanban</span></NavLink>
         <button type="button" className="tabbar__add" onClick={() => setNewCard({})} aria-label="Nova demanda"><Plus size={26} aria-hidden /></button>
         <NavLink to={`${base}/calendario`} className="tabbar__item"><CalendarDays size={22} aria-hidden /><span>Calendário</span></NavLink>
-        <button type="button" className="tabbar__item tabbar__cat" onClick={() => catSay(`${brief.title} ${brief.text}`, brief.mood, 6000)} aria-label="Resumo do Chiquinho">
-          <Chiquinho mood={brief.mood === 'party' ? 'happy' : 'idle'} size={28} /><span>Chiquinho</span>
-        </button>
+        <NavLink to={`${base}/foco`} className="tabbar__item tabbar__cat"><Chiquinho size={28} /><span>Foco</span></NavLink>
       </nav>
 
       <Companion fallbackMood={store.status === 'ready' ? (brief.mood === 'curious' ? 'idle' : brief.mood) : 'thinking'} />
