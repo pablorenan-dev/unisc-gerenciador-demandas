@@ -1,8 +1,11 @@
 import { useMemo, useState } from 'react'
-import { ArrowRight, Check, Clock3, Plus } from 'lucide-react'
+import { ArrowRight, Check, Clock3, Plus, Timer } from 'lucide-react'
 import { useOutletContext } from 'react-router-dom'
 import { dueLabel, dueTone, formatDuration } from '../../lib/dates'
 import { buildPlan, type PlanItem } from '../../lib/insights'
+import type { PomodoroLink } from '../../lib/pomodoro'
+import { pomodoro, usePomodoro } from '../../state/pomodoro'
+import { PomodoroPanel } from './Pomodoro'
 import { typeLabels } from '../../lib/types'
 import { Chiquinho } from '../../mascot/Chiquinho'
 import { catSay, type Mood } from '../../state/feedback'
@@ -13,12 +16,15 @@ import type { BoardContext } from '../shell/BoardLayout'
  * Mostra, em ordem, o que resolver primeiro e qual é o próximo passo de cada demanda.
  */
 export default function FocusView() {
-  const { store, openCard, openNew } = useOutletContext<BoardContext>()
+  const { store, board, openCard, openNew } = useOutletContext<BoardContext>()
+  const timer = usePomodoro()
   const plan = useMemo(() => buildPlan(store.cards, store.columns), [store.cards, store.columns])
   const lastColumn = store.columns[store.columns.length - 1]
   const [today] = useState(() => new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' }))
 
   const steps = plan.overdue.length + plan.upcoming.length
+  const linkOf = (item: PlanItem): PomodoroLink => ({ boardId: board.id, cardId: item.card.id, cardTitle: item.card.title, taskId: item.nextTask?.id ?? null, taskTitle: item.nextTask?.title ?? null })
+  const candidates = [...plan.overdue, ...plan.upcoming, ...plan.advance].map(linkOf)
   const mood: Mood = store.cards.length === 0 ? 'sleepy' : plan.total === 0 ? 'party' : plan.overdue.length ? 'worried' : steps ? 'curious' : 'happy'
   const title = plan.weekend ? 'Plano do fim de semana' : 'Plano de foco'
   const lead = store.cards.length === 0
@@ -70,6 +76,15 @@ export default function FocusView() {
                 </div>
               </div>
               <div className="plan-item__actions">
+                {(() => {
+                  const active = timer.phase === 'focus' && timer.link?.cardId === card.id
+                  return (
+                    <button type="button" className={`btn btn--sm ${active ? 'btn--active' : ''}`} disabled={active} onClick={() => { pomodoro.start(linkOf(item)); window.scrollTo({ top: 0, behavior: 'smooth' }) }}
+                      aria-label={active ? `Em foco: ${card.title}` : `Focar 25 minutos em ${card.title}`}>
+                      <Timer size={15} aria-hidden /> {active ? 'Em foco' : 'Focar'}
+                    </button>
+                  )
+                })()}
                 <button type="button" className="btn btn--sm btn--primary" onClick={() => completeStep(item)} aria-label={nextTask ? `Marcar "${nextTask.title}" como feito` : `Concluir ${card.title}`}>
                   <Check size={15} aria-hidden /> {nextTask ? 'Feito' : 'Concluir'}
                 </button>
@@ -93,6 +108,7 @@ export default function FocusView() {
         </div>
         {plan.total === 0 && <div className="hero__actions"><button type="button" className="btn btn--primary" onClick={() => openNew()}><Plus size={18} aria-hidden /> Nova demanda</button></div>}
       </section>
+      <PomodoroPanel candidates={candidates} />
       {section('1. Resolver primeiro', 'atrasadas', plan.overdue, 1)}
       {section(`${plan.overdue.length ? '2' : '1'}. Entregas da semana`, 'vencem em até 7 dias', plan.upcoming, plan.overdue.length + 1)}
       {section('Se sobrar tempo, adiante', 'já começadas, sem prazo próximo', plan.advance, plan.overdue.length + plan.upcoming.length + 1)}

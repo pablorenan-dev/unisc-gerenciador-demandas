@@ -6,6 +6,8 @@ import { useAuth } from '../../state/auth'
 import { toast } from '../../state/feedback'
 import { setPrefs, usePrefs, type Theme } from '../../state/prefs'
 import { Dialog } from '../../ui/Dialog'
+import { AvatarField } from './AvatarField'
+import { TelegramField } from './TelegramField'
 
 const themes: { value: Theme; label: string }[] = [
   { value: 'system', label: 'Igual ao sistema' },
@@ -70,8 +72,14 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
         </section>
 
         <section className="settings__section">
+          <h3>Lembretes no Telegram</h3>
+          <TelegramField />
+        </section>
+
+        <section className="settings__section">
           <h3>Conta</h3>
           <p className="settings__who"><strong>{user?.name}</strong><span>{user?.email}</span></p>
+          <AvatarField />
           {supabase && (
             <form className="settings__inline" onSubmit={changePassword}>
               <label className="field"><span>Nova senha</span>

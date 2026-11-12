@@ -99,7 +99,7 @@ export type NewCard = Partial<Omit<CardInput, 'title' | 'column'>> & { title: st
 
 const UNDO_MS = 5000
 
-const emptyData: BoardData = { columns: [], cards: [], disciplines: [], disciplinesReady: true }
+const emptyData: BoardData = { columns: [], cards: [], disciplines: [], disciplinesReady: true, notesReady: true }
 
 const sameName = (a: string, b: string) => a.trim().toLocaleLowerCase('pt-BR') === b.trim().toLocaleLowerCase('pt-BR')
 const byName = (a: Discipline, b: Discipline) => a.name.localeCompare(b.name, 'pt-BR')
@@ -207,7 +207,7 @@ export function useBoard(api: Api, boardId: string | undefined) {
         const column = current.columns.find((item) => item.id === input.column) ?? current.columns[0]
         if (!boardId || !title || !column) return null
         const full = {
-          description: '', disciplineId: null, discipline: '', type: 'trabalho' as const, priority: 'media' as const, dueStart: '', due: '', labels: [], tasks: [],
+          description: '', disciplineId: null, discipline: '', notesCount: 0, type: 'trabalho' as const, priority: 'media' as const, dueStart: '', due: '', labels: [], tasks: [],
           ...input, title, column: column.id, position: nextPosition(columnCards(column.id)),
         }
         // O nome acompanha o id (a coluna de texto antiga continua sendo preenchida).
@@ -311,6 +311,7 @@ export function useBoard(api: Api, boardId: string | undefined) {
           const card = await api.createCard(boardId, {
             ...rest,
             title: `${source.title} (cópia)`.slice(0, TITLE_MAX),
+            notesCount: 0,
             position: nextPosition(columnCards(source.column)),
             tasks: source.tasks.map((task) => ({ ...task, id: crypto.randomUUID(), timerStartedAt: null })),
           })
@@ -371,6 +372,13 @@ export function useBoard(api: Api, boardId: string | undefined) {
         )
       },
 
+      /** Atualiza só a contagem exibida no card (as observações são gravadas pela tela do card). */
+      setNotesCount(cardId: string, count: number) {
+        const current = dataRef.current
+        if (!current.cards.some((card) => card.id === cardId && card.notesCount !== count)) return
+        commit({ ...current, cards: current.cards.map((card) => (card.id === cardId ? { ...card, notesCount: count } : card)) })
+      },
+
       /* ------------------------------ Disciplinas ------------------------------ */
 
       async addDiscipline(input: DisciplineInput): Promise<Discipline | null> {
@@ -419,7 +427,7 @@ export function useBoard(api: Api, boardId: string | undefined) {
     }
   }, [api, boardId, commit, optimistic])
 
-  return { status, columns: data.columns as Column[], cards: data.cards, disciplines: data.disciplines, disciplinesReady: data.disciplinesReady, ...actions }
+  return { status, columns: data.columns as Column[], cards: data.cards, disciplines: data.disciplines, disciplinesReady: data.disciplinesReady, notesReady: data.notesReady, ...actions }
 }
 
 export type BoardStore = ReturnType<typeof useBoard>

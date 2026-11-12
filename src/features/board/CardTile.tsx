@@ -1,4 +1,4 @@
-import { CalendarClock, CheckCircle2, Copy, Flag, ListChecks, MoreHorizontal, MoveRight, Pencil, Timer, Trash2 } from 'lucide-react'
+import { CalendarClock, CheckCircle2, Copy, Flag, ListChecks, MessageSquareText, MoreHorizontal, MoveRight, Pencil, Timer, Trash2 } from 'lucide-react'
 import { dueLabel, dueTone, formatRange } from '../../lib/dates'
 import { priorityLabels, typeLabels, type Card, type Column, type Discipline } from '../../lib/types'
 import { DisciplineTag } from '../disciplines/DisciplineIcon'
@@ -48,7 +48,7 @@ export function CardTile({ card, done, discipline, columns, onOpen, onMove, onDu
       </div>
       <h3 className="card__title">{card.title}</h3>
       {card.discipline && <div className="card__discipline"><DisciplineTag discipline={discipline} name={card.discipline} /></div>}
-      {(card.due || card.tasks.length > 0 || done) && (
+      {(card.due || card.tasks.length > 0 || card.notesCount > 0 || done) && (
         <div className="card__meta">
           {card.due && (
             <span className={`due due--${tone}`} title={range ? formatRange(card.dueStart, card.due) : undefined}>
@@ -62,6 +62,7 @@ export function CardTile({ card, done, discipline, columns, onOpen, onMove, onDu
               <ListChecks size={14} aria-hidden /> {tasksDone}/{card.tasks.length}
             </span>
           )}
+          {card.notesCount > 0 && <span className="tasks-count" aria-label={`${card.notesCount} ${card.notesCount === 1 ? 'observação' : 'observações'}`}><MessageSquareText size={14} aria-hidden /> {card.notesCount}</span>}
           {timing && <span className="timing" title="Timer rodando"><Timer size={14} aria-hidden /></span>}
         </div>
       )}

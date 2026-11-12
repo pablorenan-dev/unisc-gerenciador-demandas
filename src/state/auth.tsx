@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { createDemoApi, createSupabaseApi, type Api } from '../lib/api'
 import { demoMode, supabase } from '../lib/supabase'
+import type { Profile } from '../lib/types'
 
 export type AuthUser = { id: string; email: string; name: string }
 
@@ -8,6 +9,9 @@ type AuthValue = {
   status: 'loading' | 'in' | 'out' | 'unconfigured'
   user: AuthUser | null
   api: Api | null
+  /** `undefined` = carregando; `null` = perfil indisponível (migration 0012 não aplicada). */
+  profile: Profile | null | undefined
+  setAvatarPath: (path: string | null) => void
   /** Verdadeiro quando o usuário chegou pelo link de "esqueci minha senha". */
   recovering: boolean
   finishRecovery: () => void
@@ -60,10 +64,22 @@ export function AuthProvider({ children, api: injectedApi }: { children: ReactNo
     return supabase ? createSupabaseApi(supabase, userId) : null
   }, [injectedApi, userId])
 
+  const [profile, setProfile] = useState<{ api: Api; value: Profile | null } | null>(null)
+  useEffect(() => {
+    if (!api) return
+    let active = true
+    api.getProfile().then((value) => { if (active) setProfile({ api, value }) }, () => { if (active) setProfile({ api, value: null }) })
+    return () => { active = false }
+  }, [api])
+  // Perfil de outra sessão (ex.: trocou de conta) não vale: volta a "carregando".
+  const currentProfile = profile && profile.api === api ? profile.value : undefined
+
   const value = useMemo<AuthValue>(() => ({
     status,
     user,
     api,
+    profile: currentProfile,
+    setAvatarPath: (path) => setProfile((current) => (current ? { ...current, value: { ...current.value, avatarPath: path } } : current)),
     recovering,
     finishRecovery: () => setRecovering(false),
     async signOut() {
@@ -71,7 +87,7 @@ export function AuthProvider({ children, api: injectedApi }: { children: ReactNo
       const { error } = await supabase.auth.signOut()
       return error ? 'Não foi possível sair. Tente novamente.' : null
     },
-  }), [status, user, api, recovering, local])
+  }), [status, user, api, currentProfile, recovering, local])
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }

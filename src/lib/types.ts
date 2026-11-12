@@ -1,3 +1,4 @@
+import type { StoredBlock } from './blocks'
 import type { DisciplineIcon } from './disciplines'
 
 export type Priority = 'baixa' | 'media' | 'alta' | 'urgente' | 'critica'
@@ -28,7 +29,16 @@ export type Card = {
   due: string
   labels: string[]
   tasks: Task[]
+  /** Quantidade de observações (as observações em si são carregadas ao abrir o card). */
+  notesCount: number
 }
+
+export type Note = { id: string; cardId: string; authorId: string; content: StoredBlock[]; createdAt: string; updatedAt: string }
+export type Profile = { avatarPath: string | null }
+export type Bucket = 'avatars' | 'card-images'
+
+export type TelegramSettings = { enabled: boolean; remindHour: number; daysAhead: number; timezone: string }
+export type TelegramStatus = TelegramSettings & { configured: boolean; linked: boolean; username: string | null; firstName: string | null }
 
 export type Discipline = { id: string; name: string; icon: DisciplineIcon; color: string }
 export type DisciplineInput = Omit<Discipline, 'id'>

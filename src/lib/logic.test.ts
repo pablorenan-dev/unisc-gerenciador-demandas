@@ -13,7 +13,7 @@ const columns: Column[] = [
   { id: 'todo', title: 'A fazer', color: '#000', position: 1000 },
   { id: 'done', title: 'Concluído', color: '#000', position: 2000 },
 ]
-const card = (patch: Partial<Card>): Card => ({ id: 'c', column: 'todo', position: 1000, title: 'Demanda', description: '', disciplineId: null, discipline: '', type: 'trabalho', priority: 'media', dueStart: '', due: '', labels: [], tasks: [], ...patch })
+const card = (patch: Partial<Card>): Card => ({ id: 'c', column: 'todo', position: 1000, title: 'Demanda', description: '', disciplineId: null, discipline: '', notesCount: 0, type: 'trabalho', priority: 'media', dueStart: '', due: '', labels: [], tasks: [], ...patch })
 
 describe('datas', () => {
   it('usa a data de hoje, e não uma data fixa, para calcular o prazo', () => {

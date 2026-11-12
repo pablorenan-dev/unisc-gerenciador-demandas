@@ -6,11 +6,16 @@ import { catSay, toast } from '../../state/feedback'
 import { ConfirmDialog, Dialog } from '../../ui/Dialog'
 import { DisciplineSelect } from '../disciplines/DisciplineSelect'
 import { DueFields } from './DueFields'
+import { NotesSection } from './NotesSection'
 
 type Props = {
   card: Card
   columns: Column[]
+  boardId: string
   boardName: string
+  /** Falso enquanto o banco não tem observações (migration 0012). */
+  notesReady: boolean
+  onNotesCount: (count: number) => void
   disciplines: Discipline[]
   /** Falso enquanto o banco não tem o cadastro de disciplinas: o campo volta a ser texto livre. */
   disciplinesReady: boolean
@@ -27,7 +32,7 @@ const fieldsOf = (card: Card) => JSON.stringify([card.title, card.description, c
  * Detalhe da demanda. Os campos são salvos pelo botão "Salvar";
  * a lista de tarefas (marcar, adicionar, remover, timer) é salva na hora, como um checklist.
  */
-export function CardDialog({ card, columns, boardName, disciplines, disciplinesReady, onNewDiscipline, onClose, onSave, onDelete, onDuplicate }: Props) {
+export function CardDialog({ card, columns, boardId, boardName, notesReady, onNotesCount, disciplines, disciplinesReady, onNewDiscipline, onClose, onSave, onDelete, onDuplicate }: Props) {
   const [draft, setDraft] = useState(card)
   const [newTask, setNewTask] = useState('')
   const [now, setNow] = useState(() => Date.now())
@@ -43,6 +48,7 @@ export function CardDialog({ card, columns, boardName, disciplines, disciplinesR
   }, [running])
 
   const dirty = fieldsOf(draft) !== fieldsOf(card)
+  const [notesDirty, setNotesDirty] = useState(false)
   const invalidRange = Boolean(draft.dueStart && draft.due && draft.dueStart > draft.due)
   const canSave = dirty && draft.title.trim().length > 0 && !invalidRange && !saving
   const set = (patch: Partial<Card>) => setDraft((current) => ({ ...current, ...patch }))
@@ -73,7 +79,7 @@ export function CardDialog({ card, columns, boardName, disciplines, disciplinesR
     if (ok) { toast.success('Alterações salvas.'); onClose() }
   }
 
-  const requestClose = () => (dirty ? setConfirm('discard') : onClose())
+  const requestClose = () => (dirty || notesDirty ? setConfirm('discard') : onClose())
   const column = columns.find((item) => item.id === draft.column)
 
   return (
@@ -127,6 +133,10 @@ export function CardDialog({ card, columns, boardName, disciplines, disciplinesR
                 <button type="submit" className="btn" disabled={!newTask.trim()}><Plus size={16} aria-hidden /> Adicionar</button>
               </form>
             </div>
+
+            {notesReady
+              ? <NotesSection boardId={boardId} cardId={card.id} onCount={onNotesCount} onDirty={setNotesDirty} />
+              : <p className="notes__status">Observações com imagens ficam disponíveis depois que a migration 0012 for aplicada no Supabase.</p>}
           </section>
 
           <aside className="detail__side">
@@ -152,7 +162,7 @@ export function CardDialog({ card, columns, boardName, disciplines, disciplinesR
           </aside>
         </div>
       </Dialog>
-      {confirm === 'discard' && <ConfirmDialog title="Descartar alterações?" text="Você editou esta demanda e ainda não salvou." confirmLabel="Descartar" danger onClose={() => setConfirm(null)} onConfirm={onClose} />}
+      {confirm === 'discard' && <ConfirmDialog title="Descartar alterações?" text={dirty ? 'Você editou esta demanda e ainda não salvou.' : 'Há uma observação escrita que ainda não foi salva.'} confirmLabel="Descartar" danger onClose={() => setConfirm(null)} onConfirm={onClose} />}
       {confirm === 'delete' && <ConfirmDialog title="Excluir esta demanda?" text="Ela some do quadro junto com as tarefas. Você ainda tem alguns segundos para desfazer." confirmLabel="Excluir" danger onClose={() => setConfirm(null)} onConfirm={onDelete} />}
     </>
   )

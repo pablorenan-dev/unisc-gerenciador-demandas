@@ -7,12 +7,14 @@ import { Chiquinho } from '../../mascot/Chiquinho'
 import { Companion } from '../../mascot/Companion'
 import { useAuth } from '../../state/auth'
 import { useBoard, type BoardsState, type BoardStore } from '../../state/board'
-import { catSay } from '../../state/feedback'
+import { catSay, toast } from '../../state/feedback'
+import { pendingCredits, setPendingCredits, subscribePomodoro } from '../../state/pomodoro'
 import { ConfirmDialog, PromptDialog } from '../../ui/Dialog'
 import { CardDialog } from '../card/CardDialog'
 import { NewCardDialog } from '../card/NewCardDialog'
 import { DisciplinesDialog } from '../disciplines/DisciplinesDialog'
 import { SettingsDialog, ShortcutsDialog } from '../settings/SettingsDialog'
+import { PomodoroPill } from '../focus/Pomodoro'
 import { FilterBar } from './FilterBar'
 import { StatePanel } from './StatePanel'
 import { Topbar } from './Topbar'
@@ -71,6 +73,37 @@ function BoardScreen() {
   useEffect(() => {
     if (board) { try { window.localStorage.setItem('ugd-last-board', board.id) } catch { /* ignora */ } }
   }, [board])
+
+  // Tempo de foco do pomodoro: soma no timer da tarefa vinculada quando o card é deste quadro.
+  const applying = useRef(false)
+  useEffect(() => {
+    if (store.status !== 'ready') return
+    const apply = async () => {
+      if (applying.current) return
+      const credits = pendingCredits()
+      const mine = credits.filter((credit) => store.cards.some((card) => card.id === credit.cardId))
+      if (!mine.length) return
+      applying.current = true
+      try {
+        let applied = 0
+        for (const credit of mine) {
+          const card = store.cards.find((item) => item.id === credit.cardId)
+          const task = credit.taskId ? card?.tasks.find((item) => item.id === credit.taskId) : undefined
+          if (card && task) {
+            const ok = await store.saveCard({ ...card, tasks: card.tasks.map((item) => (item.id === task.id ? { ...item, elapsedSeconds: item.elapsedSeconds + credit.seconds } : item)) })
+            if (!ok) continue
+            applied += credit.seconds
+          }
+          setPendingCredits(pendingCredits().filter((item) => item.id !== credit.id))
+        }
+        if (applied >= 60) toast.success(`${Math.round(applied / 60)} min de foco somados à tarefa.`)
+      } finally {
+        applying.current = false
+      }
+    }
+    void apply()
+    return subscribePomodoro(() => { void apply() })
+  }, [store.status, store.cards, store])
 
   // Ao abrir o quadro, o Chiquinho resume o que importa agora.
   const greeted = useRef<string | null>(null)
@@ -142,9 +175,10 @@ function BoardScreen() {
         <NavLink to={`${base}/foco`} className="tabbar__item tabbar__cat"><Chiquinho size={28} /><span>Foco</span></NavLink>
       </nav>
 
+      <PomodoroPill focusPath={`${base}/foco`} hidden={view === 'foco'} />
       <Companion fallbackMood={store.status === 'ready' ? (brief.mood === 'curious' ? 'idle' : brief.mood) : 'thinking'} />
 
-      {selected && <CardDialog key={selected.id} card={selected} columns={store.columns} boardName={board.name} disciplines={store.disciplines} disciplinesReady={store.disciplinesReady} onNewDiscipline={newDiscipline}
+      {selected && <CardDialog key={selected.id} card={selected} columns={store.columns} boardId={board.id} boardName={board.name} notesReady={store.notesReady} onNotesCount={(count) => store.setNotesCount(selected.id, count)} disciplines={store.disciplines} disciplinesReady={store.disciplinesReady} onNewDiscipline={newDiscipline}
         onClose={() => setSelectedId(null)} onSave={store.saveCard}
         onDelete={() => { setSelectedId(null); store.deleteCard(selected.id) }}
         onDuplicate={async () => { const copy = await store.duplicateCard(selected.id); if (copy) setSelectedId(copy.id) }} />}

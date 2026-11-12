@@ -5,6 +5,7 @@ import { Chiquinho } from '../../mascot/Chiquinho'
 import { useAuth } from '../../state/auth'
 import { toast } from '../../state/feedback'
 import { setPrefs, usePrefs } from '../../state/prefs'
+import { Avatar } from '../../ui/Avatar'
 import { Menu, MenuItem, MenuLabel, MenuSeparator } from '../../ui/Menu'
 
 type Props = {
@@ -29,8 +30,7 @@ type Props = {
  */
 export function Topbar({ board, boards, base, userName, userEmail, onNewCard, onSwitch, onCreateBoard, onRenameBoard, onDeleteBoard, onDisciplines, onSettings, onShortcuts }: Props) {
   const prefs = usePrefs()
-  const { signOut } = useAuth()
-  const initials = userName.trim().slice(0, 2).toUpperCase() || '?'
+  const { signOut, profile } = useAuth()
 
   return (
     <header className="topbar">
@@ -61,9 +61,9 @@ export function Topbar({ board, boards, base, userName, userEmail, onNewCard, on
 
       <div className="topbar__end">
         <button type="button" className="btn btn--primary topbar__new" onClick={onNewCard}><Plus size={18} aria-hidden /> Nova demanda</button>
-        <Menu label={`Conta de ${userName}`} triggerClassName="avatar" trigger={<span aria-hidden>{initials}</span>}>
+        <Menu label={`Conta de ${userName}`} triggerClassName="avatar-btn" trigger={<Avatar name={userName} path={profile?.avatarPath} />}>
           {(close) => <>
-            <div className="menu__profile"><strong>{userName}</strong><span>{userEmail}</span></div>
+            <div className="menu__profile"><Avatar name={userName} path={profile?.avatarPath} size={44} /><div><strong>{userName}</strong><span>{userEmail}</span></div></div>
             <MenuSeparator />
             <MenuLabel>Tema</MenuLabel>
             <MenuItem icon={<Monitor size={16} />} checked={prefs.theme === 'system'} onSelect={() => setPrefs({ theme: 'system' })}>Igual ao sistema</MenuItem>

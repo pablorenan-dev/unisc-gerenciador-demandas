@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { X } from 'lucide-react'
 import { idlePhrases } from '../lib/insights'
 import { catSay, dismissToast, useFeedback, type Mood } from '../state/feedback'
+import { usePomodoro } from '../state/pomodoro'
 import { usePrefs } from '../state/prefs'
 import { Chiquinho } from './Chiquinho'
 import { meow } from './voice'
@@ -15,6 +16,8 @@ const petLines = ['Miau!', 'Prrrr…', 'De novo.', 'Aí sim.', 'Não para.', 'PR
 export function Companion({ fallbackMood = 'idle' }: { fallbackMood?: Mood }) {
   const { speech } = useFeedback()
   const prefs = usePrefs()
+  // Durante o foco ele dorme e não puxa conversa.
+  const focusing = usePomodoro().phase === 'focus'
   const [pets, setPets] = useState(0)
   const [petting, setPetting] = useState(false)
   const cooldown = useRef<number | null>(null)
@@ -23,7 +26,7 @@ export function Companion({ fallbackMood = 'idle' }: { fallbackMood?: Mood }) {
 
   // Conversa fiada ocasional, só quando não há nada mais importante sendo dito.
   useEffect(() => {
-    if (!prefs.chatter) return
+    if (!prefs.chatter || focusing) return
     // A cada 15s há 50% de chance de uma frase: em média, uma a cada 30 segundos.
     // Nunca repete a anterior nem interrompe um aviso que ainda está na tela.
     let last = ''
@@ -34,7 +37,7 @@ export function Companion({ fallbackMood = 'idle' }: { fallbackMood?: Mood }) {
       catSay(last, 'idle', 6000)
     }, 15000)
     return () => window.clearInterval(timer)
-  }, [prefs.chatter])
+  }, [prefs.chatter, focusing])
 
   // O "nível de carinho" esfria sozinho.
   useEffect(() => {
@@ -53,7 +56,7 @@ export function Companion({ fallbackMood = 'idle' }: { fallbackMood?: Mood }) {
     catSay(petLines[next] ?? petLines[0], next >= 5 ? 'party' : 'happy', 2200)
   }
 
-  const mood: Mood = speech?.mood ?? (petting ? 'happy' : fallbackMood)
+  const mood: Mood = speech?.mood ?? (petting ? 'happy' : focusing ? 'sleepy' : fallbackMood)
 
   return (
     <div className={`companion ${petting ? 'companion--petting' : ''}`} style={{ '--pets': pets } as React.CSSProperties}>
