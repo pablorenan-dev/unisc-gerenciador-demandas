@@ -311,3 +311,7 @@ textarea.detail__title { padding: 6px 10px; margin-left: -10px; width: calc(100%
 .disc-summary { display: flex; flex-direction: column; gap: 2px; margin: 0 calc(var(--sp-2) * -1); }
 .disc-summary__item { display: flex; align-items: center; gap: var(--sp-3); width: 100%; padding: var(--sp-2); border: 0; border-radius: var(--r-md); background: transparent; text-align: left; }
 .disc-summary__item:hover { background: var(--surface-hover); }
+
+.state__details { margin-top: var(--sp-4); font-size: var(--fs-sm); color: var(--text-3); }
+.state__details summary { cursor: pointer; }
+.state__details code { display: block; margin-top: var(--sp-2); padding: var(--sp-3); border-radius: var(--r-sm); background: var(--bg-sunken); color: var(--text-2); font-size: var(--fs-xs); text-align: left; white-space: pre-wrap; overflow-wrap: anywhere; }

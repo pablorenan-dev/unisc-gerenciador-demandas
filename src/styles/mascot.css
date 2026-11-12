@@ -40,7 +40,7 @@
 @keyframes drop { 0% { opacity: 0; translate: 0 -30%; } 30% { opacity: 1; } 100% { opacity: 0; translate: 0 90%; } }
 
 /* oops: de cabeça para baixo, vendo estrelas */
-.cat--oops .cat__sticker { transform: rotate(172deg); animation: cat-dizzy 2.6s ease-in-out infinite; }
+.cat--oops .cat__sticker { transform: rotate(172deg); transform-origin: 50% 50%; animation: cat-dizzy 2.6s ease-in-out infinite; }
 .cat__prop--stars { inset: -14% -14% auto; display: flex; justify-content: space-between; color: var(--amber); font-size: calc(var(--cat-size) * 0.22); }
 .cat__prop--stars i { font-style: normal; animation: twinkle 1s ease-in-out infinite; }
 .cat__prop--stars i:nth-child(2) { translate: 0 -60%; animation-delay: 0.3s; }

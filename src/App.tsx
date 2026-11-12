@@ -1,4 +1,4 @@
-import { Component, lazy, Suspense, useEffect, type ReactNode } from 'react'
+import { Component, lazy, Suspense, useEffect, type ComponentType, type ErrorInfo, type ReactNode } from 'react'
 import { BrowserRouter, Link, MemoryRouter, Navigate, Outlet, Route, Routes, useNavigate, useOutletContext } from 'react-router-dom'
 import type { Api } from './lib/api'
 import { AuthPage, ResetPasswordPage } from './features/auth/AuthPage'
@@ -10,9 +10,28 @@ import { AuthProvider, useAuth } from './state/auth'
 import { useBoards, type BoardsState } from './state/board'
 
 // Kanban (com a biblioteca de arraste) e Calendário só são baixados quando abertos.
-const BoardView = lazy(() => import('./features/board/BoardView'))
-const CalendarView = lazy(() => import('./features/calendar/CalendarView'))
-const FocusView = lazy(() => import('./features/focus/FocusView'))
+const RELOAD_FLAG = 'ugd-recarregou-por-versao'
+
+/**
+ * Depois de um deploy, os arquivos da versão anterior deixam de existir no servidor.
+ * Quem estava com o app aberto falharia ao abrir uma tela; aqui recarregamos uma única vez.
+ */
+function lazyView<T extends ComponentType>(load: () => Promise<{ default: T }>) {
+  return lazy(() => load().then(
+    (module) => { try { window.sessionStorage.removeItem(RELOAD_FLAG) } catch { /* ignora */ } return module },
+    (error: unknown) => {
+      let reloaded = true
+      try { reloaded = window.sessionStorage.getItem(RELOAD_FLAG) === '1'; window.sessionStorage.setItem(RELOAD_FLAG, '1') } catch { /* ignora */ }
+      if (reloaded) throw error
+      window.location.reload()
+      return new Promise<{ default: T }>(() => {})
+    },
+  ))
+}
+
+const BoardView = lazyView(() => import('./features/board/BoardView'))
+const CalendarView = lazyView(() => import('./features/calendar/CalendarView'))
+const FocusView = lazyView(() => import('./features/focus/FocusView'))
 const loadingView = <StatePanel mood="thinking" title="Abrindo…" busy />
 
 /** Área logada: carrega os quadros do usuário e entrega para as rotas filhas. */
@@ -79,12 +98,29 @@ export function AppRoutes() {
 }
 
 /** Se algo quebrar na renderização, o usuário vê uma saída em vez de uma tela em branco. */
-class ErrorBoundary extends Component<{ children: ReactNode }, { failed: boolean }> {
-  state = { failed: false }
-  static getDerivedStateFromError() { return { failed: true } }
+class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
+  state: { error: Error | null } = { error: null }
+
+  static getDerivedStateFromError(error: unknown) {
+    return { error: error instanceof Error ? error : new Error(String(error)) }
+  }
+
+  componentDidCatch(error: Error, info: ErrorInfo) {
+    console.error('[UGD] erro de renderização:', error, info.componentStack)
+  }
+
   render() {
-    if (!this.state.failed) return this.props.children
-    return <Centered><StatePanel mood="oops" title="Eita, derrubei alguma coisa." text="Um erro inesperado aconteceu. Seus dados salvos continuam seguros." action={<button type="button" className="btn btn--primary" onClick={() => window.location.reload()}>Recarregar</button>} /></Centered>
+    const { error } = this.state
+    if (!error) return this.props.children
+    return (
+      <Centered>
+        <StatePanel mood="oops" title="Eita, derrubei alguma coisa." text="Um erro inesperado aconteceu. Seus dados salvos continuam seguros."
+          action={<>
+            <button type="button" className="btn btn--primary" onClick={() => window.location.reload()}>Recarregar</button>
+            <details className="state__details"><summary>Detalhes técnicos</summary><code>{error.name}: {error.message}</code></details>
+          </>} />
+      </Centered>
+    )
   }
 }
 
