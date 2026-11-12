@@ -31,11 +31,11 @@ import './overrides.css'
 import { supabase } from './lib/supabase'
 import chiquinho from './assets/chiquinho.jpg'
 
-type Priority = 'baixa' | 'media' | 'alta'
-type CardType = 'trabalho' | 'prova' | 'seminario' | 'leitura' | 'projeto' | 'outro'
+type Priority = 'baixa' | 'media' | 'alta' | 'urgente' | 'critica'
+type CardType = 'trabalho' | 'prova' | 'seminario' | 'leitura' | 'projeto' | 'exercicios' | 'estudo' | 'outro'
 type View = 'overview' | 'board' | 'calendar'
 
-type Task = { id: string; title: string; done: boolean }
+type Task = { id: string; title: string; done: boolean; elapsedSeconds: number; timerStartedAt: string | null }
 type Card = {
   id: string
   title: string
@@ -43,6 +43,7 @@ type Card = {
   discipline: string
   type: CardType
   priority: Priority
+  dueStart?: string
   due: string
   column: string
   tasks: Task[]
@@ -50,10 +51,10 @@ type Card = {
 }
 
 const initialCards: Card[] = [
-  { id: '1', title: 'Trabalho de Compiladores', description: 'Implementar o analisador léxico e entregar o relatório.', discipline: 'Compiladores', type: 'trabalho', priority: 'alta', due: '2026-11-12', column: 'doing', tasks: [{ id: 't1', title: 'Definir gramática', done: true }, { id: 't2', title: 'Implementar lexer', done: true }, { id: 't3', title: 'Escrever relatório', done: false }], labels: ['Código'] },
-  { id: '2', title: 'Prova de Banco de Dados', description: 'Revisar normalização, SQL e transações.', discipline: 'Banco de Dados', type: 'prova', priority: 'alta', due: '2026-11-18', column: 'todo', tasks: [{ id: 't4', title: 'Revisar material', done: false }, { id: 't5', title: 'Resolver exercícios', done: false }], labels: ['Prova'] },
-  { id: '3', title: 'Seminário de IA', description: 'Preparar apresentação sobre redes neurais.', discipline: 'Inteligência Artificial', type: 'seminario', priority: 'media', due: '2026-11-22', column: 'review', tasks: [{ id: 't6', title: 'Escolher referências', done: true }, { id: 't7', title: 'Montar slides', done: false }], labels: ['Apresentação'] },
-  { id: '4', title: 'Ler artigo científico', description: 'Artigo indicado para a próxima aula.', discipline: 'Metodologia', type: 'leitura', priority: 'baixa', due: '2026-11-28', column: 'done', tasks: [{ id: 't8', title: 'Fazer anotações', done: true }], labels: ['Leitura'] },
+  { id: '1', title: 'Trabalho de Compiladores', description: 'Implementar o analisador léxico e entregar o relatório.', discipline: 'Compiladores', type: 'trabalho', priority: 'alta', due: '2026-11-12', column: 'doing', tasks: [{ id: 't1', title: 'Definir gramática', done: true, elapsedSeconds: 0, timerStartedAt: null }, { id: 't2', title: 'Implementar lexer', done: true, elapsedSeconds: 0, timerStartedAt: null }, { id: 't3', title: 'Escrever relatório', done: false, elapsedSeconds: 0, timerStartedAt: null }], labels: ['Código'] },
+  { id: '2', title: 'Prova de Banco de Dados', description: 'Revisar normalização, SQL e transações.', discipline: 'Banco de Dados', type: 'prova', priority: 'alta', due: '2026-11-18', column: 'todo', tasks: [{ id: 't4', title: 'Revisar material', done: false, elapsedSeconds: 0, timerStartedAt: null }, { id: 't5', title: 'Resolver exercícios', done: false, elapsedSeconds: 0, timerStartedAt: null }], labels: ['Prova'] },
+  { id: '3', title: 'Seminário de IA', description: 'Preparar apresentação sobre redes neurais.', discipline: 'Inteligência Artificial', type: 'seminario', priority: 'media', due: '2026-11-22', column: 'review', tasks: [{ id: 't6', title: 'Escolher referências', done: true, elapsedSeconds: 0, timerStartedAt: null }, { id: 't7', title: 'Montar slides', done: false, elapsedSeconds: 0, timerStartedAt: null }], labels: ['Apresentação'] },
+  { id: '4', title: 'Ler artigo científico', description: 'Artigo indicado para a próxima aula.', discipline: 'Metodologia', type: 'leitura', priority: 'baixa', due: '2026-11-28', column: 'done', tasks: [{ id: 't8', title: 'Fazer anotações', done: true, elapsedSeconds: 0, timerStartedAt: null }], labels: ['Leitura'] },
 ]
 
 const defaultColumns = [
@@ -65,10 +66,11 @@ const defaultColumns = [
 
 const columnColors = ['#94a3b8', '#64748b', '#ef4444', '#f97316', '#f59e0b', '#eab308', '#84cc16', '#10b981', '#14b8a6', '#06b6d4', '#3b82f6', '#6366f1', '#8b5cf6', '#d946ef', '#ec4899']
 
-const typeLabels: Record<CardType, string> = { trabalho: 'Trabalho', prova: 'Prova', seminario: 'Seminário', leitura: 'Leitura', projeto: 'Projeto', outro: 'Outro' }
-const priorityLabels: Record<Priority, string> = { baixa: 'Baixa', media: 'Média', alta: 'Alta' }
+const typeLabels: Record<CardType, string> = { trabalho: 'Trabalho', prova: 'Prova', seminario: 'Seminário', leitura: 'Leitura', projeto: 'Projeto', exercicios: 'Exercícios', estudo: 'Estudo', outro: 'Outro' }
+const priorityLabels: Record<Priority, string> = { baixa: 'Baixa', media: 'Média', alta: 'Alta', urgente: 'Urgente', critica: 'Crítica' }
 
 function daysUntil(date: string) {
+  if (!date) return Infinity
   const today = new Date('2026-11-10T12:00:00')
   return Math.ceil((new Date(`${date}T12:00:00`).getTime() - today.getTime()) / 86400000)
 }
@@ -193,14 +195,14 @@ function App() {
     setBoardId(firstBoard.id)
     const loadedColumns = boardColumns.map((column) => ({ id: column.id, title: column.nome, color: column.cor }))
     setColumns(loadedColumns)
-    const { data: boardCards, error: cardsError } = await supabase.from('cards').select('id, column_id, titulo, descricao, disciplina, tipo, prioridade, data_entrega, labels').eq('board_id', firstBoard.id).order('posicao', { ascending: true })
+    const { data: boardCards, error: cardsError } = await supabase.from('cards').select('id, column_id, titulo, descricao, disciplina, tipo, prioridade, data_inicio, data_entrega, labels').eq('board_id', firstBoard.id).order('posicao', { ascending: true })
     if (cardsError) {
       setToast(`Não foi possível carregar as demandas: ${cardsError.message}`)
       window.setTimeout(() => setToast(''), 4000)
       return
     }
     if (boardCards?.length) {
-      const { data: boardTasks, error: tasksError } = await supabase.from('tasks').select('id, card_id, titulo, concluida').in('card_id', boardCards.map((card) => card.id))
+      const { data: boardTasks, error: tasksError } = await supabase.from('tasks').select('id, card_id, titulo, concluida, tempo_segundos, timer_iniciado_em').in('card_id', boardCards.map((card) => card.id))
       if (tasksError) {
         setToast(`Não foi possível carregar as tarefas: ${tasksError.message}`)
         window.setTimeout(() => setToast(''), 4000)
@@ -213,9 +215,10 @@ function App() {
         discipline: card.disciplina,
         type: card.tipo,
         priority: card.prioridade,
+        dueStart: card.data_inicio ?? '',
         due: card.data_entrega ?? '2026-11-30',
         column: card.column_id,
-        tasks: (boardTasks ?? []).filter((task) => task.card_id === card.id).map((task) => ({ id: task.id, title: task.titulo, done: task.concluida })),
+        tasks: (boardTasks ?? []).filter((task) => task.card_id === card.id).map((task) => ({ id: task.id, title: task.titulo, done: task.concluida, elapsedSeconds: task.tempo_segundos ?? 0, timerStartedAt: task.timer_iniciado_em })),
         labels: card.labels,
       })))
     } else {
@@ -248,6 +251,12 @@ function App() {
     setDisciplineFilter('all')
   }
 
+  function openCompletedCards() {
+    clearFilters()
+    setCardFocus('completed')
+    changeView('board')
+  }
+
   async function moveCard(id: string, column: string, targetIndex?: number) {
     let reorderedCards: Card[] = []
     setCards((current) => {
@@ -273,11 +282,11 @@ function App() {
   async function duplicateCard(card: Card) {
     const title = `${card.title} (cópia)`
     if (supabase && boardId) {
-      const { data, error } = await supabase.from('cards').insert({ board_id: boardId, column_id: card.column, titulo: title, descricao: card.description, disciplina: card.discipline, tipo: card.type, prioridade: card.priority, data_entrega: card.due, labels: card.labels }).select('id').single()
+      const { data, error } = await supabase.from('cards').insert({ board_id: boardId, column_id: card.column, titulo: title, descricao: card.description, disciplina: card.discipline, tipo: card.type, prioridade: card.priority, data_inicio: card.dueStart || null, data_entrega: card.due || null, labels: card.labels }).select('id').single()
       if (error || !data) { setToast(`Não foi possível duplicar a demanda: ${error?.message ?? 'erro desconhecido'}`); return }
-      setCards((current) => [...current, { ...card, id: data.id, title, tasks: [] }])
+      setCards((current) => [...current, { ...card, id: data.id, title, tasks: card.tasks.map((task) => ({ ...task, id: crypto.randomUUID(), timerStartedAt: null })) }])
     } else {
-      setCards((current) => [...current, { ...card, id: crypto.randomUUID(), title, tasks: card.tasks.map((task) => ({ ...task, id: crypto.randomUUID() })) }])
+      setCards((current) => [...current, { ...card, id: crypto.randomUUID(), title, tasks: card.tasks.map((task) => ({ ...task, id: crypto.randomUUID(), timerStartedAt: null })) }])
     }
     setToast('Demanda duplicada')
     window.setTimeout(() => setToast(''), 2400)
@@ -364,16 +373,16 @@ function App() {
     setColumns(next)
   }
 
-  async function createCard(title: string, discipline: string) {
+  async function createCard(title: string, discipline: string, dueStart: string, due: string) {
     const column = columns.find((item) => item.id === newCardColumn) ?? columns[0]
     if (!column) return
     let id: string = crypto.randomUUID()
     if (supabase && boardId) {
-      const { data, error } = await supabase.from('cards').insert({ board_id: boardId, column_id: column.id, titulo: title, descricao: '', disciplina: discipline, tipo: 'trabalho', prioridade: 'media', data_entrega: '2026-11-30', labels: [] }).select('id').single()
+      const { data, error } = await supabase.from('cards').insert({ board_id: boardId, column_id: column.id, titulo: title, descricao: '', disciplina: discipline, tipo: 'trabalho', prioridade: 'media', data_inicio: dueStart || null, data_entrega: due || null, labels: [] }).select('id').single()
       if (error || !data) { setToast(`Não foi possível criar a demanda: ${error?.message ?? 'erro desconhecido'}`); return }
       id = data.id
     }
-    setCards((current) => [...current, { id, title, description: '', discipline, type: 'trabalho', priority: 'media', due: '2026-11-30', column: column.id, tasks: [], labels: [] }])
+    setCards((current) => [...current, { id, title, description: '', discipline, type: 'trabalho', priority: 'media', dueStart, due, column: column.id, tasks: [], labels: [] }])
     setShowNew(false)
     setNewCardColumn(null)
     setToast('Nova demanda criada')
@@ -411,14 +420,14 @@ function App() {
 
   async function saveCard(updated: Card) {
     if (supabase && boardId) {
-      const { error } = await supabase.from('cards').update({ titulo: updated.title, descricao: updated.description, disciplina: updated.discipline, tipo: updated.type, prioridade: updated.priority, data_entrega: updated.due, column_id: updated.column, labels: updated.labels }).eq('id', updated.id).eq('board_id', boardId)
+      const { error } = await supabase.from('cards').update({ titulo: updated.title, descricao: updated.description, disciplina: updated.discipline, tipo: updated.type, prioridade: updated.priority, data_inicio: updated.dueStart || null, data_entrega: updated.due || null, column_id: updated.column, labels: updated.labels }).eq('id', updated.id).eq('board_id', boardId)
       if (error) {
         setToast(`Não foi possível salvar a demanda: ${error.message}`)
         return
       }
       await supabase.from('tasks').delete().eq('card_id', updated.id)
       if (updated.tasks.length) {
-        const { error: tasksError } = await supabase.from('tasks').insert(updated.tasks.map((task) => ({ card_id: updated.id, titulo: task.title, concluida: task.done })))
+        const { error: tasksError } = await supabase.from('tasks').insert(updated.tasks.map((task) => ({ card_id: updated.id, titulo: task.title, concluida: task.done, tempo_segundos: task.elapsedSeconds, timer_iniciado_em: task.timerStartedAt })))
         if (tasksError) {
           setToast(`A demanda foi salva, mas as tarefas falharam: ${tasksError.message}`)
           return
@@ -494,9 +503,9 @@ function App() {
         </header>
         <section className={`content ${activeView}-content`}>
           {activeView !== 'board' && <div className="page-heading"><div><div className="eyebrow"><span className="status-dot" /> SEMESTRE 2026/2</div><h1>{activeView === 'overview' ? 'Visão geral' : 'Calendário'}</h1><p>{activeView === 'overview' ? 'Acompanhe o andamento do seu semestre em um só lugar.' : 'Demandas 2026/2 · organize suas entregas com clareza.'}</p></div><div className="heading-actions">{activeView === 'overview' && <button className="secondary-btn" onClick={() => changeView('board')}><Columns3 size={17} /> Abrir Kanban</button>}{activeView === 'calendar' && <button className="secondary-btn" onClick={() => changeView('board')}><Columns3 size={17} /> Ver Kanban</button>}<button className="primary-btn" onClick={() => setShowNew(true)}><Plus size={18} /> Nova demanda</button></div></div>}
-          {activeView === 'overview' && <div className="stats"><div><span className="stat-icon purple"><Target size={17} /></span><div><strong>{cards.length}</strong><small>Demandas totais</small></div></div><button className="stat-card" onClick={() => { setCalendarMode('week'); changeView('calendar') }} title="Abrir calendário na visualização semanal"><span className="stat-icon orange"><Clock3 size={17} /></span><div><strong>{cards.filter((c) => daysUntil(c.due) <= 7 && daysUntil(c.due) >= 0).length}</strong><small>Próximos 7 dias</small></div></button><button className="stat-card" onClick={() => { setCardFocus('completed'); changeView('board') }} title="Mostrar cards com todas as tarefas concluídas"><span className="stat-icon green"><Check size={17} /></span><div><strong>{cards.filter((c) => c.tasks.length > 0 && c.tasks.every((task) => task.done)).length}</strong><small>Concluídas</small></div></button><div><span className="stat-icon blue"><Archive size={17} /></span><div><strong>{(() => { const tasks = cards.flatMap((card) => card.tasks); return tasks.length ? Math.round(tasks.filter((task) => task.done).length / tasks.length * 100) : 0 })()}%</strong><small>Progresso médio</small></div></div></div>}
-          {activeView === 'board' && <div className="kanban-topbar"><div><strong>Demandas 2026/2</strong><span>Quadro Kanban</span></div><div className="kanban-filters"><div className="search"><Search size={16} /><input placeholder="Buscar demandas..." value={search} onChange={(e) => setSearch(e.target.value)} /></div><select value={activeColumn} onChange={(e) => setActiveColumn(e.target.value)}><option value="all">Todas as colunas</option>{columns.map((column) => <option key={column.id} value={column.id}>{column.title}</option>)}</select><select value={priority} onChange={(e) => setPriority(e.target.value as 'all' | Priority)}><option value="all">Todas prioridades</option><option value="alta">Alta prioridade</option><option value="media">Média prioridade</option><option value="baixa">Baixa prioridade</option></select><button className={`filter-btn ${showFilters ? 'active' : ''}`} onClick={() => setShowFilters((current) => !current)} aria-expanded={showFilters}><Filter size={16} /> Filtros</button></div></div>}
-          {activeView === 'calendar' && <div className="toolbar"><div className="view-tabs"><button className="selected" onClick={() => changeView('calendar')}><CalendarDays size={16} /> Calendário</button><button onClick={() => changeView('board')}><Columns3 size={16} /> Kanban</button></div><div className="filters"><div className="search"><Search size={16} /><input placeholder="Buscar demandas..." value={search} onChange={(e) => setSearch(e.target.value)} /></div><select value={activeColumn} onChange={(e) => setActiveColumn(e.target.value)}><option value="all">Todas as colunas</option>{columns.map((column) => <option key={column.id} value={column.id}>{column.title}</option>)}</select><select value={priority} onChange={(e) => setPriority(e.target.value as 'all' | Priority)}><option value="all">Todas prioridades</option><option value="alta">Alta prioridade</option><option value="media">Média prioridade</option><option value="baixa">Baixa prioridade</option></select><button className={`filter-btn ${showFilters ? 'active' : ''}`} onClick={() => setShowFilters((current) => !current)} aria-expanded={showFilters}><Filter size={16} /> Filtros</button></div></div>}
+          {activeView === 'overview' && <div className="stats"><div><span className="stat-icon purple"><Target size={17} /></span><div><strong>{cards.length}</strong><small>Demandas totais</small></div></div><button className="stat-card" onClick={() => { setCalendarMode('week'); changeView('calendar') }} title="Abrir calendário na visualização semanal"><span className="stat-icon orange"><Clock3 size={17} /></span><div><strong>{cards.filter((c) => daysUntil(c.due) <= 7 && daysUntil(c.due) >= 0).length}</strong><small>Próximos 7 dias</small></div></button><button className="stat-card" onClick={openCompletedCards} title="Mostrar cards com todas as tarefas concluídas"><span className="stat-icon green"><Check size={17} /></span><div><strong>{cards.filter((c) => c.tasks.length > 0 && c.tasks.every((task) => task.done)).length}</strong><small>Concluídas</small></div></button><div><span className="stat-icon blue"><Archive size={17} /></span><div><strong>{(() => { const tasks = cards.flatMap((card) => card.tasks); return tasks.length ? Math.round(tasks.filter((task) => task.done).length / tasks.length * 100) : 0 })()}%</strong><small>Progresso médio</small></div></div></div>}
+          {activeView === 'board' && <div className="kanban-topbar"><div><strong>Demandas 2026/2</strong><span>Quadro Kanban</span></div><div className="kanban-filters"><div className="search"><Search size={16} /><input placeholder="Buscar demandas..." value={search} onChange={(e) => setSearch(e.target.value)} /></div><select value={activeColumn} onChange={(e) => setActiveColumn(e.target.value)}><option value="all">Todas as colunas</option>{columns.map((column) => <option key={column.id} value={column.id}>{column.title}</option>)}</select><select value={priority} onChange={(e) => setPriority(e.target.value as 'all' | Priority)}><option value="all">Todas prioridades</option>{Object.entries(priorityLabels).slice().reverse().map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select><button className={`filter-btn ${showFilters ? 'active' : ''}`} onClick={() => setShowFilters((current) => !current)} aria-expanded={showFilters}><Filter size={16} /> Filtros</button></div></div>}
+          {activeView === 'calendar' && <div className="toolbar"><div className="view-tabs"><button className="selected" onClick={() => changeView('calendar')}><CalendarDays size={16} /> Calendário</button><button onClick={() => changeView('board')}><Columns3 size={16} /> Kanban</button></div><div className="filters"><div className="search"><Search size={16} /><input placeholder="Buscar demandas..." value={search} onChange={(e) => setSearch(e.target.value)} /></div><select value={activeColumn} onChange={(e) => setActiveColumn(e.target.value)}><option value="all">Todas as colunas</option>{columns.map((column) => <option key={column.id} value={column.id}>{column.title}</option>)}</select><select value={priority} onChange={(e) => setPriority(e.target.value as 'all' | Priority)}><option value="all">Todas prioridades</option>{Object.entries(priorityLabels).slice().reverse().map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select><button className={`filter-btn ${showFilters ? 'active' : ''}`} onClick={() => setShowFilters((current) => !current)} aria-expanded={showFilters}><Filter size={16} /> Filtros</button></div></div>}
           {showFilters && activeView !== 'overview' && <div className="advanced-filters"><label>Tipo<select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value as 'all' | CardType)}><option value="all">Todos os tipos</option>{Object.entries(typeLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label><label>Disciplina<select value={disciplineFilter} onChange={(e) => setDisciplineFilter(e.target.value)}><option value="all">Todas as disciplinas</option>{disciplines.map((discipline) => <option key={discipline} value={discipline}>{discipline}</option>)}</select></label><button className="clear-filters" onClick={clearFilters}>Limpar filtros</button></div>}
           {activeView === 'overview' && <Overview cards={cards} onSelect={setSelected} onOpenBoard={() => changeView('board')} onOpenWeek={() => { setCalendarMode('week'); changeView('calendar') }} />}
           {activeView === 'board' && <Board columns={columns} cards={filteredCards} onMove={moveCard} onSelect={setSelected} onEdit={setSelected} onDuplicate={duplicateCard} onDelete={deleteCard} onRenameColumn={renameColumn} onDeleteColumn={deleteColumn} onChangeColor={async (id, color) => { if (!supabase || !boardId) { setToast('Esta coluna ainda não está conectada ao banco'); window.setTimeout(() => setToast(''), 3000); return } const { error } = await supabase.from('columns').update({ cor: color }).eq('id', id).eq('board_id', boardId); if (error) { setToast(`Não foi possível salvar a cor: ${error.message}`); window.setTimeout(() => setToast(''), 4000); return } setColumns((current) => current.map((column) => column.id === id ? { ...column, color } : column)); setToast('Cor da coluna salva'); window.setTimeout(() => setToast(''), 2400) }} onAdd={(columnId) => { setNewCardColumn(columnId); setShowNew(true) }} onAddColumn={addColumn} onReorder={reorderColumn} />}
@@ -880,7 +889,7 @@ function CardItem({ card, onSelect, onMove, onEdit, onDuplicate, onDelete, onDra
   const [menuOpen, setMenuOpen] = useState(false)
   const done = card.tasks.filter((task) => task.done).length
   const remaining = daysUntil(card.due)
-  return <article className="card-item" draggable onDragStart={(event) => { event.stopPropagation(); onDragStart() }} onDragEnd={onDragEnd} onClick={onSelect}><div className="card-top"><span className={`type-chip ${card.type}`}>{typeLabels[card.type]}</span><div className="card-menu-wrap"><button className="icon-btn" aria-label="Opções da demanda" aria-expanded={menuOpen} onClick={(event) => { event.stopPropagation(); setMenuOpen((current) => !current) }}><MoreHorizontal size={17} /></button>{menuOpen && <div className="card-menu" onClick={(event) => event.stopPropagation()}><button onClick={() => { setMenuOpen(false); onEdit(card) }}>Editar demanda</button><button onClick={() => { setMenuOpen(false); onDuplicate(card) }}>Duplicar demanda</button><button className="danger" onClick={() => { setMenuOpen(false); if (window.confirm('Excluir esta demanda?')) onDelete(card.id) }}>Excluir demanda</button></div>}</div></div><h3>{card.title}</h3>{card.discipline && <p className="discipline">{card.discipline}</p>}<div className="card-meta"><span className={`priority ${card.priority}`}><i /> {priorityLabels[card.priority]}</span><span className={`due ${remaining < 0 ? 'late' : remaining <= 2 ? 'soon' : ''}`}><Clock3 size={13} /> {new Date(`${card.due}T12:00:00`).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}</span></div>{card.tasks.length > 0 && <div className="progress-wrap"><div className="progress-label"><span>Progresso</span><span>{done}/{card.tasks.length}</span></div><div className="progress"><span style={{ width: `${done / card.tasks.length * 100}%` }} /></div></div>}<div className="card-footer"><div className="mini-avatar">PR</div><select value={card.column} onClick={(event) => event.stopPropagation()} onChange={(event) => { event.stopPropagation(); onMove(card.id, event.target.value) }} aria-label="Mover card"><option value="todo">A fazer</option><option value="doing">Em andamento</option><option value="review">Em revisão</option><option value="done">Concluído</option></select></div></article>
+  return <article className="card-item" draggable onDragStart={(event) => { event.stopPropagation(); onDragStart() }} onDragEnd={onDragEnd} onClick={onSelect}><div className="card-top"><span className={`type-chip ${card.type}`}>{typeLabels[card.type]}</span><div className="card-menu-wrap"><button className="icon-btn" aria-label="Opções da demanda" aria-expanded={menuOpen} onClick={(event) => { event.stopPropagation(); setMenuOpen((current) => !current) }}><MoreHorizontal size={17} /></button>{menuOpen && <div className="card-menu" onClick={(event) => event.stopPropagation()}><button onClick={() => { setMenuOpen(false); onEdit(card) }}>Editar demanda</button><button onClick={() => { setMenuOpen(false); onDuplicate(card) }}>Duplicar demanda</button><button className="danger" onClick={() => { setMenuOpen(false); if (window.confirm('Excluir esta demanda?')) onDelete(card.id) }}>Excluir demanda</button></div>}</div></div><h3>{card.title}</h3>{card.discipline && <p className="discipline">{card.discipline}</p>}<div className="card-meta"><span className={`priority ${card.priority}`}><i /> {priorityLabels[card.priority]}</span>{card.due && <span className={`due ${remaining < 0 ? 'late' : remaining <= 2 ? 'soon' : ''}`}><Clock3 size={13} /> {card.dueStart && card.dueStart !== card.due ? `${new Date(`${card.dueStart}T12:00:00`).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })} - ` : ''}{new Date(`${card.due}T12:00:00`).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}</span>}</div>{card.tasks.length > 0 && <div className="progress-wrap"><div className="progress-label"><span>Progresso</span><span>{done}/{card.tasks.length}</span></div><div className="progress"><span style={{ width: `${done / card.tasks.length * 100}%` }} /></div></div>}<div className="card-footer"><div className="mini-avatar">PR</div><select value={card.column} onClick={(event) => event.stopPropagation()} onChange={(event) => { event.stopPropagation(); onMove(card.id, event.target.value) }} aria-label="Mover card"><option value="todo">A fazer</option><option value="doing">Em andamento</option><option value="review">Em revisão</option><option value="done">Concluído</option></select></div></article>
 }
 
 function SettingsModal({ dark, compactSidebar, onDarkChange, onCompactSidebarChange, onClose }: { dark: boolean; compactSidebar: boolean; onDarkChange: (value: boolean) => void; onCompactSidebarChange: (value: boolean) => void; onClose: () => void }) {
@@ -904,7 +913,8 @@ function CalendarView({ cards, onSelect, initialMode }: { cards: Card[]; onSelec
     setWeekOffset(0)
   }
   const cardDate = (card: Card) => new Date(`${card.due}T12:00:00`)
-  const monthCards = cards.filter((card) => cardDate(card).getFullYear() === month.getFullYear() && cardDate(card).getMonth() === month.getMonth()).sort((a, b) => a.due.localeCompare(b.due))
+  const datedCards = cards.filter((card) => card.due)
+  const monthCards = datedCards.filter((card) => cardDate(card).getFullYear() === month.getFullYear() && cardDate(card).getMonth() === month.getMonth()).sort((a, b) => a.due.localeCompare(b.due))
   const weekStart = useMemo(() => {
     const anchor = new Date(month.getFullYear(), month.getMonth(), 1 + weekOffset * 7)
     const mondayOffset = (anchor.getDay() + 6) % 7
@@ -923,21 +933,53 @@ function CalendarView({ cards, onSelect, initialMode }: { cards: Card[]; onSelec
     setMode(initialMode)
     if (initialMode === 'week') setWeekOffset(2)
   }, [initialMode])
-  return <div className="calendar"><div className="calendar-header"><button onClick={() => moveCalendar(-1)} aria-label={mode === 'week' ? 'Semana anterior' : 'Mês anterior'}>‹</button><strong>{mode === 'week' ? weekMonthName : monthName}</strong><button onClick={() => moveCalendar(1)} aria-label={mode === 'week' ? 'Próxima semana' : 'Próximo mês'}>›</button><div className="calendar-modes"><button className={mode === 'month' ? 'active' : ''} onClick={() => setMode('month')}>Mês</button><button className={mode === 'week' ? 'active' : ''} onClick={() => setMode('week')}>Semana</button><button className={mode === 'list' ? 'active' : ''} onClick={() => setMode('list')}>Lista</button></div></div>{mode === 'list' && <div className="calendar-list">{monthCards.length === 0 ? <p>Nenhuma entrega neste mês.</p> : monthCards.map((card) => <button className="calendar-list-item" key={card.id} onClick={() => onSelect(card)}><span className={`upcoming-date ${card.priority}`}><strong>{cardDate(card).getDate()}</strong><small>{cardDate(card).toLocaleDateString('pt-BR', { month: 'short' })}</small></span><span><strong>{card.title}</strong><small>{card.discipline}</small></span></button>)}</div>}{mode === 'week' && <div className="calendar-week"><div className="week-grid">{weekDays.map((date) => { const dayCards = cards.filter((card) => isSameDay(cardDate(card), date)).sort((a, b) => a.due.localeCompare(b.due)); return <section className={`week-day ${isSameDay(date, today) ? 'today' : ''}`} key={date.toISOString()}><header><span>{date.toLocaleDateString('pt-BR', { weekday: 'short' }).replace('.', '')}</span><strong>{date.getDate()}</strong></header><div className="week-events">{dayCards.length === 0 ? <span className="week-empty">Sem entregas</span> : dayCards.map((card) => <button className={`week-event ${card.priority}`} key={card.id} onClick={() => onSelect(card)}><strong>{card.title}</strong><small>{card.discipline || typeLabels[card.type]}</small></button>)}</div></section> })}</div></div>}{mode === 'month' && <><div className="weekdays">{['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'].map((day) => <span key={day}>{day}</span>)}</div><div className="month-grid">{Array.from({ length: firstDay }).map((_, index) => <span key={`empty-${index}`} />)}{days.map((day) => { const dayCards = cards.filter((card) => { const date = cardDate(card); return date.getFullYear() === month.getFullYear() && date.getMonth() === month.getMonth() && date.getDate() === day }); const date = new Date(month.getFullYear(), month.getMonth(), day); return <div className={`day ${isSameDay(date, today) ? 'today' : ''}`} key={day}><span>{day}</span>{dayCards.map((card) => <button className={`event ${card.priority}`} key={card.id} onClick={() => onSelect(card)}>{card.title}</button>)}</div> })}</div></>}</div>
+  return <div className="calendar"><div className="calendar-header"><button onClick={() => moveCalendar(-1)} aria-label={mode === 'week' ? 'Semana anterior' : 'Mês anterior'}>‹</button><strong>{mode === 'week' ? weekMonthName : monthName}</strong><button onClick={() => moveCalendar(1)} aria-label={mode === 'week' ? 'Próxima semana' : 'Próximo mês'}>›</button><div className="calendar-modes"><button className={mode === 'month' ? 'active' : ''} onClick={() => setMode('month')}>Mês</button><button className={mode === 'week' ? 'active' : ''} onClick={() => setMode('week')}>Semana</button><button className={mode === 'list' ? 'active' : ''} onClick={() => setMode('list')}>Lista</button></div></div>{mode === 'list' && <div className="calendar-list">{monthCards.length === 0 ? <p>Nenhuma entrega neste mês.</p> : monthCards.map((card) => <button className="calendar-list-item" key={card.id} onClick={() => onSelect(card)}><span className={`upcoming-date ${card.priority}`}><strong>{cardDate(card).getDate()}</strong><small>{cardDate(card).toLocaleDateString('pt-BR', { month: 'short' })}</small></span><span><strong>{card.title}</strong><small>{card.discipline}</small></span></button>)}</div>}{mode === 'week' && <div className="calendar-week"><div className="week-grid">{weekDays.map((date) => { const dayCards = datedCards.filter((card) => isSameDay(cardDate(card), date)).sort((a, b) => a.due.localeCompare(b.due)); return <section className={`week-day ${isSameDay(date, today) ? 'today' : ''}`} key={date.toISOString()}><header><span>{date.toLocaleDateString('pt-BR', { weekday: 'short' }).replace('.', '')}</span><strong>{date.getDate()}</strong></header><div className="week-events">{dayCards.length === 0 ? <span className="week-empty">Sem entregas</span> : dayCards.map((card) => <button className={`week-event ${card.priority}`} key={card.id} onClick={() => onSelect(card)}><strong>{card.title}</strong><small>{card.discipline || typeLabels[card.type]}</small></button>)}</div></section> })}</div></div>}{mode === 'month' && <><div className="weekdays">{['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'].map((day) => <span key={day}>{day}</span>)}</div><div className="month-grid">{Array.from({ length: firstDay }).map((_, index) => <span key={`empty-${index}`} />)}{days.map((day) => { const dayCards = datedCards.filter((card) => { const date = cardDate(card); return date.getFullYear() === month.getFullYear() && date.getMonth() === month.getMonth() && date.getDate() === day }); const date = new Date(month.getFullYear(), month.getMonth(), day); return <div className={`day ${isSameDay(date, today) ? 'today' : ''}`} key={day}><span>{day}</span>{dayCards.map((card) => <button className={`event ${card.priority}`} key={card.id} onClick={() => onSelect(card)}>{card.title}</button>)}</div> })}</div></>}</div>
+}
+
+function formatDuration(seconds: number) {
+  const hours = Math.floor(seconds / 3600)
+  const minutes = Math.floor((seconds % 3600) / 60)
+  const remainingSeconds = seconds % 60
+  return `${hours > 0 ? `${hours}h ` : ''}${String(minutes).padStart(2, '0')}:${String(remainingSeconds).padStart(2, '0')}`
 }
 
 function CardModal({ card, onClose, onSave }: { card: Card; onClose: () => void; onSave: (card: Card) => void }) {
   const [draft, setDraft] = useState(card)
   const [newTask, setNewTask] = useState('')
-  function addTask() { if (!newTask.trim()) return; setDraft({ ...draft, tasks: [...draft.tasks, { id: crypto.randomUUID(), title: newTask.trim(), done: false }] }); setNewTask('') }
+  const [now, setNow] = useState(() => Date.now())
+  const [isDateRange, setIsDateRange] = useState(Boolean(card.dueStart && card.dueStart !== card.due))
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 1000)
+    return () => window.clearInterval(timer)
+  }, [])
+  function taskElapsed(task: Task) {
+    return task.elapsedSeconds + (task.timerStartedAt ? Math.max(0, Math.floor((now - new Date(task.timerStartedAt).getTime()) / 1000)) : 0)
+  }
+  function persistTask(taskId: string, changes: Partial<Task>) {
+    const updated = { ...draft, tasks: draft.tasks.map((task) => task.id === taskId ? { ...task, ...changes } : task) }
+    setDraft(updated)
+    onSave(updated)
+  }
+  function toggleTimer(task: Task) {
+    if (task.timerStartedAt) {
+      const elapsedSeconds = taskElapsed(task)
+      persistTask(task.id, { elapsedSeconds, timerStartedAt: null })
+    } else {
+      persistTask(task.id, { timerStartedAt: new Date().toISOString() })
+    }
+  }
+  function addTask() { if (!newTask.trim()) return; setDraft({ ...draft, tasks: [...draft.tasks, { id: crypto.randomUUID(), title: newTask.trim(), done: false, elapsedSeconds: 0, timerStartedAt: null }] }); setNewTask('') }
   const completed = draft.tasks.filter((task) => task.done).length
-  return <div className="modal-backdrop" onMouseDown={(event) => event.target === event.currentTarget && onClose()}><div className="modal card-detail-modal"><header className="detail-header"><span className={`type-chip ${draft.type}`}>{typeLabels[draft.type]}</span><span className="detail-path">Demandas 2026/2 / {draft.title}</span><button className="icon-btn" onClick={onClose} aria-label="Fechar detalhe"><X size={20} /></button></header><div className="detail-grid"><section className="detail-left"><label className="detail-label">Título<input className="detail-title-input" value={draft.title} onChange={(e) => setDraft({ ...draft, title: e.target.value })} /></label><label>Descrição<textarea value={draft.description} onChange={(e) => setDraft({ ...draft, description: e.target.value })} rows={6} placeholder="Adicione uma descrição..." /></label><div className="detail-labels">{draft.labels.map((label) => <span key={label}>{label}</span>)}</div></section><section className="detail-center"><div className="detail-section-heading"><div><span className="eyebrow">EXECUÇÃO</span><h2>Tarefas</h2></div><strong>{completed}/{draft.tasks.length}</strong></div><div className="detail-progress"><span style={{ width: `${draft.tasks.length ? completed / draft.tasks.length * 100 : 0}%` }} /></div><div className="detail-tasks">{draft.tasks.map((task) => <div className="task-row" key={task.id}><button className={`check ${task.done ? 'checked' : ''}`} onClick={() => setDraft({ ...draft, tasks: draft.tasks.map((item) => item.id === task.id ? { ...item, done: !item.done } : item) })}>{task.done && <Check size={13} />}</button><span className={task.done ? 'completed' : ''}>{task.title}</span><button className="icon-btn" onClick={() => setDraft({ ...draft, tasks: draft.tasks.filter((item) => item.id !== task.id) })}><X size={14} /></button></div>)}</div><div className="add-task"><input placeholder="Adicionar tarefa..." value={newTask} onChange={(e) => setNewTask(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && addTask()} /><button className="secondary-btn" onClick={addTask}><Plus size={15} /> Adicionar</button></div><div className="activity"><div className="detail-section-heading"><div><span className="eyebrow">HISTÓRICO</span><h2>Atividade</h2></div></div><div className="activity-item"><span className="activity-dot" /><div><strong>Demanda criada</strong><small>Você adicionou esta demanda ao quadro</small></div></div><div className="activity-item"><span className="activity-dot purple-dot" /><div><strong>Última atualização</strong><small>Informações mantidas no quadro 2026/2</small></div></div></div></section><aside className="detail-right"><div className="detail-section-heading"><div><span className="eyebrow">DETALHES</span><h2>Informações</h2></div></div><label>Disciplina<input value={draft.discipline} onChange={(e) => setDraft({ ...draft, discipline: e.target.value })} /></label><label>Entrega<input type="date" value={draft.due} onChange={(e) => setDraft({ ...draft, due: e.target.value })} /></label><label>Tipo<select value={draft.type} onChange={(e) => setDraft({ ...draft, type: e.target.value as CardType })}>{Object.entries(typeLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label><label>Prioridade<select value={draft.priority} onChange={(e) => setDraft({ ...draft, priority: e.target.value as Priority })}>{Object.entries(priorityLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label><div className="detail-owner"><div className="mini-avatar">PR</div><div><strong>Responsável</strong><small>Pablo Renan</small></div></div></aside></div><footer className="detail-footer"><button className="secondary-btn" onClick={onClose}>Cancelar</button><button className="primary-btn" onClick={() => onSave(draft)}>Salvar alterações</button></footer></div></div>
+  return <div className="modal-backdrop" onMouseDown={(event) => event.target === event.currentTarget && onClose()}><div className="modal card-detail-modal"><header className="detail-header"><span className={`type-chip ${draft.type}`}>{typeLabels[draft.type]}</span><span className="detail-path">Demandas 2026/2 / {draft.title}</span><button className="icon-btn" onClick={onClose} aria-label="Fechar detalhe"><X size={20} /></button></header><div className="detail-grid"><section className="detail-left"><label className="detail-label">Título<input className="detail-title-input" value={draft.title} onChange={(e) => setDraft({ ...draft, title: e.target.value })} /></label><label>Descrição<textarea value={draft.description} onChange={(e) => setDraft({ ...draft, description: e.target.value })} rows={6} placeholder="Adicione uma descrição..." /></label><div className="detail-labels">{draft.labels.map((label) => <span key={label}>{label}</span>)}</div></section><section className="detail-center"><div className="detail-section-heading"><div><span className="eyebrow">EXECUÇÃO</span><h2>Tarefas</h2></div><strong>{completed}/{draft.tasks.length}</strong></div><div className="detail-progress"><span style={{ width: `${draft.tasks.length ? completed / draft.tasks.length * 100 : 0}%` }} /></div>  <div className="detail-tasks">{draft.tasks.map((task) => <div className="task-row" key={task.id}><button className={`check ${task.done ? 'checked' : ''}`} onClick={() => setDraft({ ...draft, tasks: draft.tasks.map((item) => item.id === task.id ? { ...item, done: !item.done } : item) })}>{task.done && <Check size={13} />}</button><span className={task.done ? 'completed' : ''}>{task.title}</span><span className="task-timer-value">{formatDuration(taskElapsed(task))}</span><button className="task-timer-btn" onClick={() => toggleTimer(task)} title={task.timerStartedAt ? 'Pausar timer' : 'Continuar timer'}>{task.timerStartedAt ? 'Pausar' : task.elapsedSeconds > 0 ? 'Continuar' : 'Iniciar'}</button><button className="icon-btn" onClick={() => setDraft({ ...draft, tasks: draft.tasks.filter((item) => item.id !== task.id) })}><X size={14} /></button></div>)}</div><div className="add-task"><input placeholder="Adicionar tarefa..." value={newTask} onChange={(e) => setNewTask(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && addTask()} /><button className="secondary-btn" onClick={addTask}><Plus size={15} /> Adicionar</button></div><div className="activity"><div className="detail-section-heading"><div><span className="eyebrow">HISTÓRICO</span><h2>Atividade</h2></div></div><div className="activity-item"><span className="activity-dot" /><div><strong>Demanda criada</strong><small>Você adicionou esta demanda ao quadro</small></div></div><div className="activity-item"><span className="activity-dot purple-dot" /><div><strong>Última atualização</strong><small>Informações mantidas no quadro 2026/2</small></div></div></div></section><aside className="detail-right"><div className="detail-section-heading"><div><span className="eyebrow">DETALHES</span><h2>Informações</h2></div></div><label>Disciplina<input value={draft.discipline} onChange={(e) => setDraft({ ...draft, discipline: e.target.value })} /></label>  {!isDateRange && <label>Data de entrega<input type="date" value={draft.due} onChange={(e) => setDraft({ ...draft, dueStart: '', due: e.target.value })} /></label>}<button type="button" className={`date-toggle ${isDateRange ? 'active' : ''}`} onClick={() => { const next = !isDateRange; setIsDateRange(next); setDraft({ ...draft, dueStart: next ? (draft.dueStart || draft.due) : '', due: draft.due }) }} aria-pressed={isDateRange}><span className="date-toggle-indicator" /> Usar faixa de datas</button>{isDateRange && <div className="date-range"><label>De<input type="date" value={draft.dueStart || draft.due} onChange={(e) => setDraft({ ...draft, dueStart: e.target.value })} /></label><label>Até<input type="date" value={draft.due} min={draft.dueStart || undefined} onChange={(e) => setDraft({ ...draft, due: e.target.value })} /></label></div>}<label>Tipo<select value={draft.type} onChange={(e) => setDraft({ ...draft, type: e.target.value as CardType })}>{Object.entries(typeLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label><label>Prioridade<select value={draft.priority} onChange={(e) => setDraft({ ...draft, priority: e.target.value as Priority })}>{Object.entries(priorityLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label><div className="detail-owner"><div className="mini-avatar">PR</div><div><strong>Responsável</strong><small>Pablo Renan</small></div></div></aside></div><footer className="detail-footer"><button className="secondary-btn" onClick={onClose}>Cancelar</button><button className="primary-btn" onClick={() => onSave(draft)}>Salvar alterações</button></footer></div></div>
 }
 
-function NewCardModal({ onClose, onCreate }: { onClose: () => void; onCreate: (title: string, discipline: string) => void }) {
+function NewCardModal({ onClose, onCreate }: { onClose: () => void; onCreate: (title: string, discipline: string, dueStart: string, due: string) => void }) {
   const [title, setTitle] = useState('')
   const [discipline, setDiscipline] = useState('')
-  return <div className="modal-backdrop"><div className="modal small-modal"><div className="modal-header"><div><span className="eyebrow">NOVA DEMANDA</span><h2>O que precisa ser feito?</h2></div><button className="icon-btn" onClick={onClose}><X size={20} /></button></div><label>Título<input autoFocus placeholder="Ex.: Lista de exercícios 3" value={title} onChange={(e) => setTitle(e.target.value)} /></label><label>Disciplina<input placeholder="Ex.: Estruturas de Dados" value={discipline} onChange={(e) => setDiscipline(e.target.value)} /></label><div className="modal-actions"><button className="secondary-btn" onClick={onClose}>Cancelar</button><button className="primary-btn" disabled={!title.trim()} onClick={() => onCreate(title, discipline)}>Criar demanda</button></div></div></div>
+  const [isDateRange, setIsDateRange] = useState(false)
+  const [dueStart, setDueStart] = useState('')
+  const [due, setDue] = useState('')
+  return <div className="modal-backdrop"><div className="modal small-modal"><div className="modal-header"><div><span className="eyebrow">NOVA DEMANDA</span><h2>O que precisa ser feito?</h2></div><button className="icon-btn" onClick={onClose}><X size={20} /></button></div><label>Título<input autoFocus placeholder="Ex.: Lista de exercícios 3" value={title} onChange={(e) => setTitle(e.target.value)} /></label><label>Disciplina<input placeholder="Ex.: Estruturas de Dados" value={discipline} onChange={(e) => setDiscipline(e.target.value)} /></label>  <button type="button" className={`date-toggle ${isDateRange ? 'active' : ''}`} onClick={() => setIsDateRange((current) => !current)} aria-pressed={isDateRange}><span className="date-toggle-indicator" /> Usar faixa de datas</button>{isDateRange ? <div className="date-range"><label>De<input type="date" value={dueStart} onChange={(e) => setDueStart(e.target.value)} /></label><label>Até<input type="date" value={due} min={dueStart} onChange={(e) => setDue(e.target.value)} /></label></div> : <label>Data de entrega (opcional)<input type="date" value={due} onChange={(e) => setDue(e.target.value)} /></label>}<div className="modal-actions"><button className="secondary-btn" onClick={onClose}>Cancelar</button><button className="primary-btn" disabled={!title.trim() || (isDateRange && (!dueStart || !due))} onClick={() => onCreate(title, discipline, isDateRange ? dueStart : '', due)}>Criar demanda</button></div></div></div>
 }
 
 export default App

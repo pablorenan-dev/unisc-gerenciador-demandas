@@ -61,6 +61,13 @@
 .upcoming-date{width:36px;height:38px;border-radius:7px;background:#eef0ff;color:#4f46e5;display:flex;flex-direction:column;align-items:center;justify-content:center}
 .upcoming-date.alta{background:#fff0f0;color:#d15c5c}
 .upcoming-date.media{background:#fff7e2;color:#c68d18}
+.upcoming-date.urgente{background:#fff1e8;color:#d95f13}
+.upcoming-date.critica{background:#ffe9e9;color:#c73535}
+.task-timer-value{min-width:42px;text-align:right;font-variant-numeric:tabular-nums;color:#7c8798;font-size:10px}
+.task-timer-btn{border:1px solid #dfe3eb;background:#f8f9fc;color:#4f46e5;border-radius:6px;padding:4px 7px;font-size:10px;cursor:pointer}
+.task-timer-btn:hover{background:#eef0ff}
+.dark .task-timer-btn{border-color:#454545;background:#333;color:#b9b5ff}
+.dark .task-timer-btn:hover{background:#3d3d3d}
 .upcoming-date strong{font:700 15px 'Space Grotesk'}
 .upcoming-date small{font-size:9px;color:inherit}
 .rotate-chevron{transform:rotate(-90deg);color:#a2abba}
@@ -280,6 +287,51 @@
    height: 18px;
    accent-color: #4f46e5;
    flex-shrink: 0;
+ }
+
+ .date-toggle {
+   display: flex;
+   align-items: center;
+   gap: 8px;
+   width: 100%;
+   min-height: 30px;
+   flex-shrink: 0;
+   border: 0;
+   padding: 6px 0;
+   background: transparent;
+   color: inherit;
+   font-size: 12px;
+   cursor: pointer;
+ }
+
+ .date-toggle-indicator {
+   width: 18px;
+   height: 18px;
+   border: 1px solid #9aa4b6;
+   border-radius: 4px;
+   background: transparent;
+ }
+
+ .date-toggle.active .date-toggle-indicator {
+   border-color: #4f46e5;
+   background: #4f46e5;
+   box-shadow: inset 0 0 0 4px #fff;
+ }
+
+ .date-range {
+   display: grid;
+   grid-template-columns: 1fr 1fr;
+   gap: 10px;
+   margin-top: 8px;
+   width: 100%;
+   flex-shrink: 0;
+ }
+
+ .date-range label {
+   display: flex;
+   flex-direction: column;
+   gap: 5px;
+   font-size: 11px;
  }
 
  .settings-footer {

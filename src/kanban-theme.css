@@ -206,6 +206,8 @@
 .week-event.alta{border-left-color:#ed6b76}
 .week-event.media{border-left-color:#e8a52a}
 .week-event.baixa{border-left-color:#35c58b}
+.week-event.urgente{border-left-color:#f97316}
+.week-event.critica{border-left-color:#ef4444}
 .week-empty{padding:8px 4px;color:#67758c;font-size:10px;text-align:center}
 @media(max-width:720px){
   .calendar-week{overflow-x:auto}

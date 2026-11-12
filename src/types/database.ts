@@ -14,21 +14,21 @@ export type Database = {
         Relationships: []
       },
       cards: {
-        Row: { id: string; board_id: string; column_id: string; titulo: string; descricao: string; disciplina: string; tipo: 'trabalho' | 'prova' | 'seminario' | 'leitura' | 'projeto' | 'outro'; prioridade: 'baixa' | 'media' | 'alta'; data_entrega: string | null; labels: string[]; posicao: number }
-        Insert: { board_id: string; column_id: string; titulo: string; descricao?: string; disciplina?: string; tipo?: 'trabalho' | 'prova' | 'seminario' | 'leitura' | 'projeto' | 'outro'; prioridade?: 'baixa' | 'media' | 'alta'; data_entrega?: string | null; labels?: string[]; posicao?: number }
-        Update: Partial<{ board_id: string; column_id: string; titulo: string; descricao: string; disciplina: string; tipo: 'trabalho' | 'prova' | 'seminario' | 'leitura' | 'projeto' | 'outro'; prioridade: 'baixa' | 'media' | 'alta'; data_entrega: string | null; labels: string[]; posicao: number }>
+        Row: { id: string; board_id: string; column_id: string; titulo: string; descricao: string; disciplina: string; tipo: 'trabalho' | 'prova' | 'seminario' | 'leitura' | 'projeto' | 'exercicios' | 'estudo' | 'outro'; prioridade: 'baixa' | 'media' | 'alta' | 'urgente' | 'critica'; data_inicio: string | null; data_entrega: string | null; labels: string[]; posicao: number }
+        Insert: { board_id: string; column_id: string; titulo: string; descricao?: string; disciplina?: string; tipo?: 'trabalho' | 'prova' | 'seminario' | 'leitura' | 'projeto' | 'exercicios' | 'estudo' | 'outro'; prioridade?: 'baixa' | 'media' | 'alta' | 'urgente' | 'critica'; data_inicio?: string | null; data_entrega?: string | null; labels?: string[]; posicao?: number }
+        Update: Partial<{ board_id: string; column_id: string; titulo: string; descricao: string; disciplina: string; tipo: 'trabalho' | 'prova' | 'seminario' | 'leitura' | 'projeto' | 'exercicios' | 'estudo' | 'outro'; prioridade: 'baixa' | 'media' | 'alta' | 'urgente' | 'critica'; data_inicio: string | null; data_entrega: string | null; labels: string[]; posicao: number }>
         Relationships: []
       },
       tasks: {
-        Row: { id: string; card_id: string; titulo: string; concluida: boolean }
-        Insert: { card_id: string; titulo: string; concluida?: boolean }
-        Update: Partial<{ card_id: string; titulo: string; concluida: boolean }>
+        Row: { id: string; card_id: string; titulo: string; concluida: boolean; tempo_segundos: number; timer_iniciado_em: string | null }
+        Insert: { card_id: string; titulo: string; concluida?: boolean; tempo_segundos?: number; timer_iniciado_em?: string | null }
+        Update: Partial<{ card_id: string; titulo: string; concluida: boolean; tempo_segundos: number; timer_iniciado_em: string | null }>
         Relationships: []
       }
     }
     Views: Record<string, never>
     Functions: Record<string, never>
-    Enums: { card_type: 'trabalho' | 'prova' | 'seminario' | 'leitura' | 'projeto' | 'outro'; priority: 'baixa' | 'media' | 'alta'; board_role: 'owner' | 'editor' | 'viewer' }
+    Enums: { card_type: 'trabalho' | 'prova' | 'seminario' | 'leitura' | 'projeto' | 'exercicios' | 'estudo' | 'outro'; priority: 'baixa' | 'media' | 'alta' | 'urgente' | 'critica'; board_role: 'owner' | 'editor' | 'viewer' }
     CompositeTypes: Record<string, never>
   }
 }
