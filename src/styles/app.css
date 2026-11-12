@@ -208,7 +208,8 @@ textarea.detail__title { padding: 6px 10px; margin-left: -10px; width: calc(100%
 }
 
 @media (max-width: 720px) {
-  .main { padding: var(--sp-4) var(--sp-4) calc(var(--tabbar-h) + var(--sp-5) + env(safe-area-inset-bottom)); }
+  /* O espaço extra no fim deixa o último item rolar para cima do Chiquinho, que fica no canto. */
+  .main { padding: var(--sp-4) var(--sp-4) calc(var(--tabbar-h) + 72px + env(safe-area-inset-bottom)); }
   .topbar { padding: 0 var(--sp-3); gap: var(--sp-2); }
   .views, .brand__name { display: none; }
   .board-switch { flex: 1; min-width: 0; max-width: none; justify-content: space-between; }

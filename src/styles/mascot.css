@@ -74,8 +74,10 @@
 .auth__cat:hover .cat__sticker, .auth__cat:focus-visible .cat__sticker { animation: cat-wiggle 0.9s var(--ease) infinite; }
 
 @media (max-width: 720px) {
-  /* No celular o Chiquinho mora na barra inferior; aqui só o balão aparece, acima dela. */
-  .companion { right: var(--sp-3); left: var(--sp-3); bottom: calc(var(--tabbar-h) + var(--sp-3) + env(safe-area-inset-bottom)); justify-content: flex-end; }
-  .companion__button { display: none; }
-  .bubble { margin-bottom: 0; border-radius: 18px 18px 4px 18px; }
+  /* No celular ele fica menor, logo acima da barra inferior, com o balão em cima dele
+     (assim o balão não esbarra na pílula do pomodoro, que fica no canto esquerdo). */
+  .companion { right: var(--sp-3); bottom: calc(var(--tabbar-h) + var(--sp-2) + env(safe-area-inset-bottom)); flex-direction: column; align-items: flex-end; gap: var(--sp-1); }
+  .companion .cat { --cat-size: 54px !important; }
+  .companion__button { -webkit-tap-highlight-color: transparent; }
+  .bubble { max-width: min(260px, calc(100vw - 32px)); margin: 0 4px 0 0; border-radius: 18px 18px 4px 18px; }
 }
