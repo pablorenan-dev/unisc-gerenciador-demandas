@@ -2,9 +2,10 @@ import { useMemo, useState } from 'react'
 import { AlertTriangle, ArrowRight, CalendarClock, CheckCircle2, CircleDashed, Plus } from 'lucide-react'
 import { useNavigate, useOutletContext } from 'react-router-dom'
 import { dueLabel, dueTone, isWeekend, parseISODate } from '../../lib/dates'
-import { briefing, summarize } from '../../lib/insights'
+import { briefing, isDone, summarize } from '../../lib/insights'
 import type { Card } from '../../lib/types'
 import { Chiquinho } from '../../mascot/Chiquinho'
+import { DisciplineIcon } from '../disciplines/DisciplineIcon'
 import { useAuth } from '../../state/auth'
 import type { BoardContext } from '../shell/BoardLayout'
 
@@ -15,7 +16,7 @@ function greeting(now = new Date()) {
 
 /** Visão geral: responde "o que eu preciso focar agora?" antes de mostrar qualquer número. */
 export function OverviewView() {
-  const { store, board, openCard, openNew, setFilters, clearFilters } = useOutletContext<BoardContext>()
+  const { store, board, openCard, openNew, setFilters, clearFilters, openDisciplines } = useOutletContext<BoardContext>()
   const { user } = useAuth()
   const navigate = useNavigate()
   const [weekendMode] = useState(() => isWeekend() || new Date().getDay() === 5)
@@ -23,6 +24,7 @@ export function OverviewView() {
   const brief = briefing(summary)
   const focus: Card[] = [...summary.late, ...summary.today, ...summary.week].slice(0, 8)
   const kanban = `/q/${board.id}/kanban`
+  const openCards = useMemo(() => store.cards.filter((card) => !isDone(card, store.columns)), [store.cards, store.columns])
   const openFiltered = (status: 'open' | 'done') => { clearFilters(); setFilters({ status }); navigate(kanban) }
 
   return (
@@ -70,6 +72,7 @@ export function OverviewView() {
           )}
         </section>
 
+        <div className="overview__side">
         <section className="panel">
           <header className="panel__header"><div><p className="eyebrow">Andamento</p><h2>{summary.progress}% concluído</h2></div></header>
           <div className="meter meter--lg" role="progressbar" aria-label="Demandas concluídas" aria-valuemin={0} aria-valuemax={100} aria-valuenow={summary.progress}><span style={{ width: `${summary.progress}%` }} /></div>
@@ -86,6 +89,35 @@ export function OverviewView() {
             })}
           </ul>
         </section>
+
+        <section className="panel">
+          <header className="panel__header panel__header--row">
+            <div><p className="eyebrow">Disciplinas</p><h2>{store.disciplines.length ? 'Suas matérias' : 'Cadastre suas matérias'}</h2></div>
+            <button type="button" className="btn btn--sm" onClick={openDisciplines}>{store.disciplines.length ? 'Gerenciar' : 'Cadastrar'}</button>
+          </header>
+          {store.disciplines.length === 0 ? (
+            <p className="panel__hint">Cada disciplina ganha um ícone e uma cor, e passa a aparecer nos cards e nos filtros.</p>
+          ) : (
+            <ul className="disc-summary">
+              {store.disciplines.map((discipline) => {
+                const mine = openCards.filter((card) => card.disciplineId === discipline.id)
+                const next = mine.map((card) => card.due).filter(Boolean).sort()[0]
+                return (
+                  <li key={discipline.id}>
+                    <button type="button" className="disc-summary__item" onClick={() => { clearFilters(); setFilters({ discipline: discipline.name }); navigate(kanban) }}>
+                      <DisciplineIcon icon={discipline.icon} color={discipline.color} size={34} />
+                      <span className="disc-summary__text">
+                        <strong>{discipline.name}</strong>
+                        <small>{mine.length === 0 ? 'Nada em aberto' : `${mine.length} ${mine.length === 1 ? 'aberta' : 'abertas'}`}{next ? ` · próxima: ${dueLabel(next).toLowerCase()}` : ''}</small>
+                      </span>
+                    </button>
+                  </li>
+                )
+              })}
+            </ul>
+          )}
+        </section>
+        </div>
       </div>
     </div>
   )

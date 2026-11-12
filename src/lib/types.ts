@@ -1,3 +1,5 @@
+import type { DisciplineIcon } from './disciplines'
+
 export type Priority = 'baixa' | 'media' | 'alta' | 'urgente' | 'critica'
 export type CardType = 'trabalho' | 'prova' | 'seminario' | 'leitura' | 'projeto' | 'exercicios' | 'estudo' | 'outro'
 
@@ -15,6 +17,9 @@ export type Card = {
   position: number
   title: string
   description: string
+  /** Disciplina cadastrada no quadro (ou `null`). */
+  disciplineId: string | null
+  /** Nome da disciplina. Preenchido a partir do cadastro; em cards antigos pode ser texto livre. */
   discipline: string
   type: CardType
   priority: Priority
@@ -25,6 +30,9 @@ export type Card = {
   tasks: Task[]
 }
 
+export type Discipline = { id: string; name: string; icon: DisciplineIcon; color: string }
+export type DisciplineInput = Omit<Discipline, 'id'>
+
 export type Column = { id: string; title: string; color: string; position: number }
 export type Board = { id: string; name: string }
 
@@ -33,6 +41,7 @@ export type CardInput = Omit<Card, 'id' | 'position'> & { position?: number }
 export const TITLE_MAX = 200
 export const COLUMN_TITLE_MAX = 80
 export const BOARD_NAME_MAX = 120
+export const DISCIPLINE_NAME_MAX = 120
 
 export const typeLabels: Record<CardType, string> = {
   trabalho: 'Trabalho',

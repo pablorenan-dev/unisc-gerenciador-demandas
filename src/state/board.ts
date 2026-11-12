@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { Api, BoardData } from '../lib/api'
 import { byPosition, nextPosition, planMove } from '../lib/order'
-import { BOARD_NAME_MAX, COLUMN_TITLE_MAX, TITLE_MAX, type Board, type Card, type CardInput, type Column } from '../lib/types'
+import { BOARD_NAME_MAX, COLUMN_TITLE_MAX, DISCIPLINE_NAME_MAX, TITLE_MAX, type Board, type Card, type CardInput, type Column, type Discipline, type DisciplineInput } from '../lib/types'
 import { catSay, toast } from './feedback'
 
 /* ---------------------------------- Quadros ---------------------------------- */
@@ -99,7 +99,29 @@ export type NewCard = Partial<Omit<CardInput, 'title' | 'column'>> & { title: st
 
 const UNDO_MS = 5000
 
-const emptyData: BoardData = { columns: [], cards: [] }
+const emptyData: BoardData = { columns: [], cards: [], disciplines: [], disciplinesReady: true }
+
+const sameName = (a: string, b: string) => a.trim().toLocaleLowerCase('pt-BR') === b.trim().toLocaleLowerCase('pt-BR')
+const byName = (a: Discipline, b: Discipline) => a.name.localeCompare(b.name, 'pt-BR')
+
+/**
+ * O nome exibido no card vem sempre do cadastro de disciplinas. Assim, renomear ou excluir
+ * uma disciplina reflete em todos os cards sem cada tela precisar fazer a consulta.
+ */
+function withDisciplineNames(data: BoardData): BoardData {
+  if (!data.disciplinesReady) return data
+  const names = new Map(data.disciplines.map((discipline) => [discipline.id, discipline.name]))
+  let changed = false
+  const cards = data.cards.map((card) => {
+    if (!card.disciplineId) return card
+    const name = names.get(card.disciplineId)
+    if (name === undefined) { changed = true; return { ...card, disciplineId: null, discipline: '' } }
+    if (name === card.discipline) return card
+    changed = true
+    return { ...card, discipline: name }
+  })
+  return changed ? { ...data, cards } : data
+}
 
 export function useBoard(api: Api, boardId: string | undefined) {
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading')
@@ -111,8 +133,9 @@ export function useBoard(api: Api, boardId: string | undefined) {
 
   /** Única porta de escrita do estado: mantém a ref sincronizada para as ações lerem o valor atual. */
   const commit = useCallback((next: BoardData) => {
-    dataRef.current = next
-    setData(next)
+    const normalized = withDisciplineNames(next)
+    dataRef.current = normalized
+    setData(normalized)
   }, [])
 
   const fetchBoard = useCallback(async (silent: boolean) => {
@@ -121,7 +144,7 @@ export function useBoard(api: Api, boardId: string | undefined) {
       const loaded = await api.loadBoard(boardId)
       // Não sobrescreve o estado se o usuário mexeu em algo enquanto a busca silenciosa acontecia.
       if (silent && (pendingWrites.current > 0 || pendingDeletes.current.size > 0)) return
-      commit({ columns: [...loaded.columns].sort(byPosition), cards: [...loaded.cards].sort(byPosition) })
+      commit({ ...loaded, columns: [...loaded.columns].sort(byPosition), cards: [...loaded.cards].sort(byPosition) })
       setStatus('ready')
     } catch {
       if (!silent) setStatus('error')
@@ -133,7 +156,7 @@ export function useBoard(api: Api, boardId: string | undefined) {
     const deletes = pendingDeletes.current
     if (boardId) {
       api.loadBoard(boardId).then(
-        (loaded) => { if (active) { commit({ columns: [...loaded.columns].sort(byPosition), cards: [...loaded.cards].sort(byPosition) }); setStatus('ready') } },
+        (loaded) => { if (active) { commit({ ...loaded, columns: [...loaded.columns].sort(byPosition), cards: [...loaded.cards].sort(byPosition) }); setStatus('ready') } },
         () => { if (active) setStatus('error') },
       )
     }
@@ -184,9 +207,11 @@ export function useBoard(api: Api, boardId: string | undefined) {
         const column = current.columns.find((item) => item.id === input.column) ?? current.columns[0]
         if (!boardId || !title || !column) return null
         const full = {
-          description: '', discipline: '', type: 'trabalho' as const, priority: 'media' as const, dueStart: '', due: '', labels: [], tasks: [],
+          description: '', disciplineId: null, discipline: '', type: 'trabalho' as const, priority: 'media' as const, dueStart: '', due: '', labels: [], tasks: [],
           ...input, title, column: column.id, position: nextPosition(columnCards(column.id)),
         }
+        // O nome acompanha o id (a coluna de texto antiga continua sendo preenchida).
+        if (full.disciplineId) full.discipline = current.disciplines.find((item) => item.id === full.disciplineId)?.name ?? ''
         try {
           const card = await api.createCard(boardId, full)
           commit({ ...dataRef.current, cards: [...dataRef.current.cards, card] })
@@ -203,6 +228,7 @@ export function useBoard(api: Api, boardId: string | undefined) {
         if (!before) return false
         const card: Card = { ...updated, title: updated.title.trim().slice(0, TITLE_MAX) }
         if (!card.title) return false
+        if (card.disciplineId) card.discipline = current.disciplines.find((item) => item.id === card.disciplineId)?.name ?? ''
         // Trocou de coluna pelo formulário: vai para o fim da nova coluna.
         if (card.column !== before.column) card.position = nextPosition(columnCards(card.column, card.id))
         const removed = before.tasks.filter((task) => !card.tasks.some((item) => item.id === task.id)).map((task) => task.id)
@@ -210,7 +236,7 @@ export function useBoard(api: Api, boardId: string | undefined) {
         return optimistic(
           { ...current, cards: current.cards.map((item) => (item.id === card.id ? card : item)) },
           async () => {
-            await api.updateCard(card.id, { title: card.title, description: card.description, discipline: card.discipline, type: card.type, priority: card.priority, dueStart: card.dueStart, due: card.due, labels: card.labels, column: card.column, position: card.position })
+            await api.updateCard(card.id, { title: card.title, description: card.description, disciplineId: card.disciplineId, discipline: card.discipline, type: card.type, priority: card.priority, dueStart: card.dueStart, due: card.due, labels: card.labels, column: card.column, position: card.position })
             if (tasksChanged) await api.saveTasks(card.id, card.tasks, removed)
           },
           'Não foi possível salvar a demanda. Suas alterações foram desfeitas.',
@@ -339,15 +365,61 @@ export function useBoard(api: Api, boardId: string | undefined) {
           return Promise.resolve(false)
         }
         return optimistic(
-          { columns: current.columns.filter((column) => column.id !== id), cards: current.cards.filter((card) => card.column !== id) },
+          { ...current, columns: current.columns.filter((column) => column.id !== id), cards: current.cards.filter((card) => card.column !== id) },
           () => api.deleteColumn(id),
           'Não foi possível excluir a coluna.',
+        )
+      },
+
+      /* ------------------------------ Disciplinas ------------------------------ */
+
+      async addDiscipline(input: DisciplineInput): Promise<Discipline | null> {
+        const name = input.name.trim().slice(0, DISCIPLINE_NAME_MAX)
+        if (!boardId || !name) return null
+        if (dataRef.current.disciplines.some((item) => sameName(item.name, name))) {
+          toast.error('Já existe uma disciplina com esse nome neste quadro.')
+          return null
+        }
+        try {
+          const discipline = await api.createDiscipline(boardId, { ...input, name })
+          commit({ ...dataRef.current, disciplines: [...dataRef.current.disciplines, discipline].sort(byName) })
+          return discipline
+        } catch {
+          toast.error('Não foi possível criar a disciplina.')
+          return null
+        }
+      },
+
+      updateDiscipline(id: string, patch: Partial<DisciplineInput>): Promise<boolean> {
+        const current = dataRef.current
+        const clean = { ...patch, ...(patch.name !== undefined ? { name: patch.name.trim().slice(0, DISCIPLINE_NAME_MAX) } : {}) }
+        if (clean.name !== undefined) {
+          if (!clean.name) return Promise.resolve(false)
+          if (current.disciplines.some((item) => item.id !== id && sameName(item.name, clean.name as string))) {
+            toast.error('Já existe uma disciplina com esse nome neste quadro.')
+            return Promise.resolve(false)
+          }
+        }
+        return optimistic(
+          { ...current, disciplines: current.disciplines.map((item) => (item.id === id ? { ...item, ...clean } : item)).sort(byName) },
+          () => api.updateDiscipline(id, clean),
+          'Não foi possível salvar a disciplina.',
+        )
+      },
+
+      /** As demandas continuam existindo; só ficam sem disciplina. */
+      deleteDiscipline(id: string): Promise<boolean> {
+        const current = dataRef.current
+        return optimistic(
+          { ...current, disciplines: current.disciplines.filter((item) => item.id !== id) },
+          () => api.deleteDiscipline(id),
+          'Não foi possível excluir a disciplina.',
         )
       },
     }
   }, [api, boardId, commit, optimistic])
 
-  return { status, columns: data.columns as Column[], cards: data.cards, ...actions }
+  return { status, columns: data.columns as Column[], cards: data.cards, disciplines: data.disciplines, disciplinesReady: data.disciplinesReady, ...actions }
 }
 
 export type BoardStore = ReturnType<typeof useBoard>

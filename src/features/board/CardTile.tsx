@@ -1,11 +1,13 @@
 import { CalendarClock, CheckCircle2, Copy, Flag, ListChecks, MoreHorizontal, MoveRight, Pencil, Timer, Trash2 } from 'lucide-react'
 import { dueLabel, dueTone, formatRange } from '../../lib/dates'
-import { priorityLabels, typeLabels, type Card, type Column } from '../../lib/types'
+import { priorityLabels, typeLabels, type Card, type Column, type Discipline } from '../../lib/types'
+import { DisciplineTag } from '../disciplines/DisciplineIcon'
 import { Menu, MenuItem, MenuLabel, MenuSeparator } from '../../ui/Menu'
 
 type Props = {
   card: Card
   done: boolean
+  discipline?: Discipline
   columns?: Column[]
   onOpen?: () => void
   onMove?: (columnId: string) => void
@@ -14,7 +16,7 @@ type Props = {
 }
 
 /** Conteúdo visual de uma demanda no quadro. Usado na coluna e no "fantasma" do arraste. */
-export function CardTile({ card, done, columns, onOpen, onMove, onDuplicate, onDelete }: Props) {
+export function CardTile({ card, done, discipline, columns, onOpen, onMove, onDuplicate, onDelete }: Props) {
   const tasksDone = card.tasks.filter((task) => task.done).length
   const tone = done ? 'done' : dueTone(card.due)
   const timing = card.tasks.some((task) => task.timerStartedAt)
@@ -45,7 +47,7 @@ export function CardTile({ card, done, columns, onOpen, onMove, onDuplicate, onD
         )}
       </div>
       <h3 className="card__title">{card.title}</h3>
-      {card.discipline && <p className="card__discipline">{card.discipline}</p>}
+      {card.discipline && <div className="card__discipline"><DisciplineTag discipline={discipline} name={card.discipline} /></div>}
       {(card.due || card.tasks.length > 0 || done) && (
         <div className="card__meta">
           {card.due && (

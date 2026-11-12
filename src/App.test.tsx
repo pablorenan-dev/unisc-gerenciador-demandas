@@ -54,7 +54,7 @@ describe('fluxos principais', () => {
     await waitFor(() => expect(within(dialog).getByRole('checkbox', { name: 'Revisar material' })).toBeChecked())
     expect(within(dialog).getByText('1/2')).toBeInTheDocument()
 
-    await user.type(within(dialog).getByLabelText('Disciplina'), ' II')
+    await user.type(within(dialog).getByLabelText('Descrição'), ' Cai na prova.')
     await user.keyboard('{Escape}')
     expect(await screen.findByRole('dialog', { name: 'Descartar alterações?' })).toBeInTheDocument()
   })
@@ -86,6 +86,31 @@ describe('fluxos principais', () => {
     expect(within(first).getByText('Lista de exercícios 3')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Marcar "Escrever relatório" como feito' }))
     await waitFor(() => expect(screen.queryByText('Trabalho de Compiladores')).not.toBeInTheDocument())
+  })
+
+  it('cadastra uma disciplina com ícone sugerido e usa em uma demanda', async () => {
+    const user = await open()
+    await user.click(screen.getByRole('button', { name: /quadro atual/i }))
+    await user.click(screen.getByRole('menuitem', { name: 'Disciplinas deste quadro' }))
+    const manager = await screen.findByRole('dialog', { name: 'Disciplinas' })
+    expect(within(manager).getByText('Banco de Dados')).toBeInTheDocument()
+    await user.click(within(manager).getByRole('button', { name: /nova disciplina/i }))
+    await user.type(within(manager).getByLabelText('Nome da disciplina'), 'Redes de Computadores')
+    expect(within(manager).getByRole('radio', { name: 'Redes' })).toBeChecked()
+    await user.click(within(manager).getByRole('button', { name: 'Criar disciplina' }))
+    expect(await within(manager).findByText('Redes de Computadores')).toBeInTheDocument()
+    await user.keyboard('{Escape}')
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+
+    await user.keyboard('n')
+    const dialog = await screen.findByRole('dialog', { name: 'O que precisa ser feito?' })
+    await user.type(within(dialog).getByLabelText('Título'), 'Lista de sub-redes')
+    await user.selectOptions(within(dialog).getByLabelText(/Disciplina/), 'Redes de Computadores')
+    await user.click(within(dialog).getByRole('button', { name: 'Criar demanda' }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    await user.click(views().getByRole('link', { name: /kanban/i }))
+    const card = (await screen.findByRole('heading', { level: 3, name: 'Lista de sub-redes' })).closest('article')!
+    expect(within(card).getByText('Redes de Computadores')).toBeInTheDocument()
   })
 
   it('mostra estado vazio com o Chiquinho para quem acabou de chegar', async () => {

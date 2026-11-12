@@ -84,6 +84,49 @@ describe('quadro: mover demandas', () => {
   })
 })
 
+describe('quadro: disciplinas', () => {
+  it('cria, e recusa nome repetido no mesmo quadro', async () => {
+    const { store } = await setup()
+    let created: unknown
+    await act(async () => { created = await store().addDiscipline({ name: '  Redes  ', icon: 'network', color: '#3b82f6' }) })
+    expect(created).toMatchObject({ name: 'Redes', icon: 'network' })
+    await act(async () => { created = await store().addDiscipline({ name: 'redes', icon: 'book', color: '#3b82f6' }) })
+    expect(created).toBeNull()
+    expect(store().disciplines.filter((item) => item.name === 'Redes')).toHaveLength(1)
+  })
+
+  it('renomear reflete em todos os cards; excluir deixa os cards sem disciplina', async () => {
+    const { store } = await setup()
+    const discipline = store().disciplines.find((item) => item.name === 'Metodologia')!
+    const using = store().cards.filter((card) => card.disciplineId === discipline.id).map((card) => card.id)
+    expect(using.length).toBeGreaterThan(1)
+
+    await act(async () => { await store().updateDiscipline(discipline.id, { name: 'Metodologia Científica' }) })
+    expect(store().cards.filter((card) => using.includes(card.id)).every((card) => card.discipline === 'Metodologia Científica')).toBe(true)
+
+    await act(async () => { await store().deleteDiscipline(discipline.id) })
+    const after = store().cards.filter((card) => using.includes(card.id))
+    expect(after).toHaveLength(using.length)
+    expect(after.every((card) => card.disciplineId === null && card.discipline === '')).toBe(true)
+  })
+
+  it('grava o id e o nome da disciplina ao salvar o card', async () => {
+    const updateCard = vi.fn(async () => {})
+    const { store } = await setup({ updateCard })
+    const target = store().disciplines.find((item) => item.name === 'Compiladores')!
+    const card = store().cards.find((item) => item.disciplineId !== target.id)!
+    await act(async () => { await store().saveCard({ ...card, disciplineId: target.id }) })
+    expect(updateCard).toHaveBeenCalledWith(card.id, expect.objectContaining({ disciplineId: target.id, discipline: 'Compiladores' }))
+  })
+
+  it('desfaz a exclusão da disciplina se o servidor recusar', async () => {
+    const { store } = await setup({ deleteDiscipline: vi.fn().mockRejectedValue(new Error('RLS')) })
+    const total = store().disciplines.length
+    await act(async () => { await store().deleteDiscipline(store().disciplines[0].id) })
+    expect(store().disciplines).toHaveLength(total)
+  })
+})
+
 describe('quadro: salvar, duplicar e excluir', () => {
   it('salva tarefas por id e informa quais foram removidas, sem apagar todas', async () => {
     const saveTasks = vi.fn(async () => {})

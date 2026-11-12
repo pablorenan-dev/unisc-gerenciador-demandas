@@ -1,11 +1,18 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { addDays, toISODate } from './dates'
 import { byPosition, STEP } from './order'
-import { defaultColumns, type Board, type Card, type CardInput, type CardType, type Column, type Priority, type Task } from './types'
+import { safeIcon } from './disciplines'
+import { defaultColumns, type Board, type Card, type CardInput, type CardType, type Column, type Discipline, type DisciplineInput, type Priority, type Task } from './types'
 
-export type CardPatch = Partial<Pick<Card, 'title' | 'description' | 'discipline' | 'type' | 'priority' | 'dueStart' | 'due' | 'labels' | 'column' | 'position'>>
+export type CardPatch = Partial<Pick<Card, 'title' | 'description' | 'discipline' | 'disciplineId' | 'type' | 'priority' | 'dueStart' | 'due' | 'labels' | 'column' | 'position'>>
 export type ColumnPatch = Partial<Pick<Column, 'title' | 'color' | 'position'>>
-export type BoardData = { columns: Column[]; cards: Card[] }
+export type BoardData = {
+  columns: Column[]
+  cards: Card[]
+  disciplines: Discipline[]
+  /** Falso quando o banco ainda não tem a tabela de disciplinas (migration 0011 não aplicada). */
+  disciplinesReady: boolean
+}
 
 /** Tudo que a interface precisa do backend. A autorização real é a RLS do banco. */
 export interface Api {
@@ -23,6 +30,9 @@ export interface Api {
   updateCard(id: string, patch: CardPatch): Promise<void>
   saveTasks(cardId: string, tasks: Task[], removedIds: string[]): Promise<void>
   deleteCard(id: string): Promise<void>
+  createDiscipline(boardId: string, input: DisciplineInput): Promise<Discipline>
+  updateDiscipline(id: string, patch: Partial<DisciplineInput>): Promise<void>
+  deleteDiscipline(id: string): Promise<void>
   deleteAccount(): Promise<void>
 }
 
@@ -34,8 +44,14 @@ function check<T extends Result>(result: T): T {
 }
 
 type TaskRow = { id: string; titulo: string; concluida: boolean; tempo_segundos: number | null; timer_iniciado_em: string | null; posicao: number | null; created_at?: string }
-type CardRow = { id: string; column_id: string; posicao: number; titulo: string; descricao: string | null; disciplina: string | null; tipo: CardType; prioridade: Priority; data_inicio: string | null; data_entrega: string | null; labels: string[] | null; created_at?: string; tasks?: TaskRow[] }
+type CardRow = { id: string; column_id: string; posicao: number; titulo: string; descricao: string | null; disciplina: string | null; discipline_id?: string | null; tipo: CardType; prioridade: Priority; data_inicio: string | null; data_entrega: string | null; labels: string[] | null; created_at?: string; tasks?: TaskRow[] }
 type ColumnRow = { id: string; nome: string; cor: string; posicao: number }
+type DisciplineRow = { id: string; nome: string; icone: string; cor: string }
+
+const DISCIPLINE_FIELDS = 'id, nome, icone, cor'
+
+/** Erros do PostgREST/Postgres para tabela ou coluna que ainda não existe. */
+const isMissingSchema = (error: { code?: string } | null) => Boolean(error && ['42P01', '42703', 'PGRST204', 'PGRST205'].includes(error.code ?? ''))
 
 const CARD_FIELDS = 'id, column_id, posicao, titulo, descricao, disciplina, tipo, prioridade, data_inicio, data_entrega, labels, created_at'
 const TASK_FIELDS = 'id, titulo, concluida, tempo_segundos, timer_iniciado_em, posicao, created_at'
@@ -52,6 +68,7 @@ function toCard(row: CardRow): Card {
     position: row.posicao,
     title: row.titulo,
     description: row.descricao ?? '',
+    disciplineId: row.discipline_id ?? null,
     discipline: row.disciplina ?? '',
     type: row.tipo,
     priority: row.prioridade,
@@ -67,10 +84,13 @@ export function safeColor(value: unknown): string {
   return typeof value === 'string' && /^#[0-9a-f]{3,8}$/i.test(value) ? value : '#a8a29e'
 }
 
+const toDiscipline = (row: DisciplineRow): Discipline => ({ id: row.id, name: row.nome, icon: safeIcon(row.icone), color: safeColor(row.cor) })
+
 const toColumn = (row: ColumnRow): Column => ({ id: row.id, title: row.nome, color: safeColor(row.cor), position: row.posicao })
 
-function cardPatchToRow(patch: CardPatch) {
+function cardPatchToRow(patch: CardPatch, withDisciplineId: boolean) {
   const row: Record<string, unknown> = {}
+  if (withDisciplineId && patch.disciplineId !== undefined) row.discipline_id = patch.disciplineId
   if (patch.title !== undefined) row.titulo = patch.title
   if (patch.description !== undefined) row.descricao = patch.description
   if (patch.discipline !== undefined) row.disciplina = patch.discipline
@@ -95,6 +115,11 @@ const taskToRow = (cardId: string) => (task: Task, index: number) => ({
 })
 
 export function createSupabaseApi(client: SupabaseClient, userId: string): Api {
+  // Descoberto em `loadBoard`: enquanto a migration 0011 não existir no banco, o app segue
+  // funcionando com a disciplina em texto, sem enviar a coluna nova.
+  let disciplinesReady = true
+  const cardFields = () => (disciplinesReady ? `${CARD_FIELDS}, discipline_id` : CARD_FIELDS)
+
   return {
     async listBoards() {
       const { data } = check(await client.from('boards').select('id, nome').order('created_at', { ascending: true }))
@@ -122,10 +147,17 @@ export function createSupabaseApi(client: SupabaseClient, userId: string): Api {
         const created = check(await client.from('columns').insert(defaultColumns.map((column, index) => ({ board_id: id, nome: column.title, cor: column.color, posicao: (index + 1) * STEP }))).select('id, nome, cor, posicao'))
         columnRows = created.data
       }
-      const { data: cardRows } = check(await client.from('cards').select(`${CARD_FIELDS}, tasks(${TASK_FIELDS})`).eq('board_id', id).order('posicao', { ascending: true }).order('created_at', { ascending: true }))
+      const found = await client.from('disciplines').select(DISCIPLINE_FIELDS).eq('board_id', id).order('nome', { ascending: true })
+      disciplinesReady = !isMissingSchema(found.error)
+      if (disciplinesReady) check(found)
+      const disciplines = disciplinesReady ? ((found.data ?? []) as DisciplineRow[]).map(toDiscipline) : []
+
+      const { data: cardRows } = check(await client.from('cards').select(`${cardFields()}, tasks(${TASK_FIELDS})`).eq('board_id', id).order('posicao', { ascending: true }).order('created_at', { ascending: true }))
       return {
         columns: ((columnRows ?? []) as ColumnRow[]).map(toColumn),
         cards: ((cardRows ?? []) as unknown as CardRow[]).map(toCard),
+        disciplines,
+        disciplinesReady,
       }
     },
 
@@ -154,14 +186,14 @@ export function createSupabaseApi(client: SupabaseClient, userId: string): Api {
     },
 
     async createCard(boardId, input) {
-      const { data } = check(await client.from('cards').insert({ board_id: boardId, ...cardPatchToRow(input) }).select(CARD_FIELDS).single())
+      const { data } = check(await client.from('cards').insert({ board_id: boardId, ...cardPatchToRow(input, disciplinesReady) }).select(cardFields()).single())
       const card = toCard(data as unknown as CardRow)
       if (input.tasks.length) check(await client.from('tasks').insert(input.tasks.map(taskToRow(card.id))))
       return { ...card, tasks: input.tasks }
     },
 
     async updateCard(id, patch) {
-      check(await client.from('cards').update(cardPatchToRow(patch)).eq('id', id))
+      check(await client.from('cards').update(cardPatchToRow(patch, disciplinesReady)).eq('id', id))
     },
 
     async saveTasks(cardId, tasks, removedIds) {
@@ -172,6 +204,26 @@ export function createSupabaseApi(client: SupabaseClient, userId: string): Api {
 
     async deleteCard(id) {
       check(await client.from('cards').delete().eq('id', id))
+    },
+
+    async createDiscipline(boardId, input) {
+      const { data } = check(await client.from('disciplines').insert({ board_id: boardId, nome: input.name, icone: safeIcon(input.icon), cor: safeColor(input.color) }).select(DISCIPLINE_FIELDS).single())
+      return toDiscipline(data as DisciplineRow)
+    },
+
+    async updateDiscipline(id, patch) {
+      const row: Record<string, unknown> = {}
+      if (patch.name !== undefined) row.nome = patch.name
+      if (patch.icon !== undefined) row.icone = safeIcon(patch.icon)
+      if (patch.color !== undefined) row.cor = safeColor(patch.color)
+      check(await client.from('disciplines').update(row).eq('id', id))
+      // O nome também fica copiado no card (coluna de texto antiga); mantém a cópia em dia.
+      if (patch.name !== undefined) check(await client.from('cards').update({ disciplina: patch.name }).eq('discipline_id', id))
+    },
+
+    async deleteDiscipline(id) {
+      check(await client.from('cards').update({ disciplina: '' }).eq('discipline_id', id))
+      check(await client.from('disciplines').delete().eq('id', id))
     },
 
     async deleteAccount() {
@@ -185,13 +237,15 @@ export function createSupabaseApi(client: SupabaseClient, userId: string): Api {
 let demoCounter = 0
 const demoId = (prefix: string) => `${prefix}-${(demoCounter += 1)}`
 
-type DemoBoard = Board & BoardData
+type DemoBoard = Board & Omit<BoardData, 'disciplinesReady'>
 
 function seedBoard(name: string, withCards: boolean): DemoBoard {
   const columns: Column[] = defaultColumns.map((column, index) => ({ id: demoId('col'), title: column.title, color: column.color, position: (index + 1) * STEP }))
   const day = (offset: number) => toISODate(addDays(new Date(), offset))
   const task = (title: string, done = false): Task => ({ id: demoId('task'), title, done, elapsedSeconds: 0, timerStartedAt: null })
-  const base = { description: '', labels: [], dueStart: '' }
+  const names: [string, Discipline['icon'], string][] = [['Banco de Dados', 'database', '#3b82f6'], ['Estruturas de Dados', 'puzzle', '#b7c95a'], ['Metodologia', 'graduation', '#a8a29e'], ['Compiladores', 'braces', '#f5a524'], ['Engenharia de Software', 'layers', '#a78bfa'], ['Inteligência Artificial', 'brain', '#ec4899']]
+  const disciplines: Discipline[] = !withCards ? [] : names.map(([name, icon, color]) => ({ id: demoId('disc'), name, icon, color }))
+  const base = { description: '', labels: [], dueStart: '', disciplineId: null as string | null }
   const cards: Card[] = !withCards ? [] : [
     { ...base, id: demoId('card'), column: columns[0].id, position: 1000, title: 'Prova de Banco de Dados', description: 'Revisar normalização, SQL e transações.', discipline: 'Banco de Dados', type: 'prova', priority: 'alta', due: day(6), tasks: [task('Revisar material'), task('Resolver exercícios')] },
     { ...base, id: demoId('card'), column: columns[0].id, position: 2000, title: 'Lista de exercícios 3', discipline: 'Estruturas de Dados', type: 'exercicios', priority: 'media', due: day(-1), tasks: [] },
@@ -201,7 +255,8 @@ function seedBoard(name: string, withCards: boolean): DemoBoard {
     { ...base, id: demoId('card'), column: columns[2].id, position: 1000, title: 'Seminário de IA', description: 'Preparar apresentação sobre redes neurais.', discipline: 'Inteligência Artificial', type: 'seminario', priority: 'media', due: day(4), tasks: [task('Escolher referências', true), task('Montar slides')] },
     { ...base, id: demoId('card'), column: columns[3].id, position: 1000, title: 'Ler artigo científico', discipline: 'Metodologia', type: 'leitura', priority: 'baixa', due: day(-3), tasks: [task('Fazer anotações', true)] },
   ]
-  return { id: demoId('board'), name, columns, cards }
+  cards.forEach((card) => { card.disciplineId = disciplines.find((item) => item.name === card.discipline)?.id ?? null })
+  return { id: demoId('board'), name, columns, cards, disciplines }
 }
 
 /** Backend em memória para desenvolvimento e testes. Nada é persistido. */
@@ -226,7 +281,7 @@ export function createDemoApi(options: { empty?: boolean } = {}): Api {
     async createBoard(name) { const board = seedBoard(name, false); boards.push(board); return { id: board.id, name } },
     async renameBoard(id, name) { find(id).name = name },
     async deleteBoard(id) { boards.splice(boards.findIndex((item) => item.id === id), 1) },
-    async loadBoard(id) { const board = find(id); return clone({ columns: [...board.columns].sort(byPosition), cards: [...board.cards].sort(byPosition) }) },
+    async loadBoard(id) { const board = find(id); return clone({ columns: [...board.columns].sort(byPosition), cards: [...board.cards].sort(byPosition), disciplines: board.disciplines, disciplinesReady: true }) },
     async createColumn(boardId, title, color, position) { const column = { id: demoId('col'), title, color, position }; find(boardId).columns.push(column); return { ...column } },
     async updateColumn(id, patch) { for (const board of boards) { const column = board.columns.find((item) => item.id === id); if (column) Object.assign(column, patch) } },
     async reorderColumns(boardId, orderedIds) { find(boardId).columns.forEach((column) => { column.position = (orderedIds.indexOf(column.id) + 1) * STEP }) },
@@ -235,6 +290,9 @@ export function createDemoApi(options: { empty?: boolean } = {}): Api {
     async updateCard(id, patch) { Object.assign(findCard(id).card, patch) },
     async saveTasks(cardId, tasks) { findCard(cardId).card.tasks = clone(tasks) },
     async deleteCard(id) { const { board } = findCard(id); board.cards = board.cards.filter((item) => item.id !== id) },
+    async createDiscipline(boardId, input) { const discipline = { ...input, id: demoId('disc') }; find(boardId).disciplines.push(discipline); return { ...discipline } },
+    async updateDiscipline(id, patch) { for (const board of boards) { const discipline = board.disciplines.find((item) => item.id === id); if (discipline) Object.assign(discipline, patch) } },
+    async deleteDiscipline(id) { for (const board of boards) { board.disciplines = board.disciplines.filter((item) => item.id !== id); board.cards.forEach((card) => { if (card.disciplineId === id) { card.disciplineId = null; card.discipline = '' } }) } },
     async deleteAccount() { throw new Error('Indisponível no modo demonstração') },
   }
 }

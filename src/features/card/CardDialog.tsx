@@ -1,28 +1,33 @@
 import { useEffect, useState } from 'react'
 import { Check, Copy, Pause, Play, Plus, Trash2, X } from 'lucide-react'
 import { formatDuration } from '../../lib/dates'
-import { priorityLabels, TITLE_MAX, typeLabels, type Card, type CardType, type Column, type Priority, type Task } from '../../lib/types'
+import { priorityLabels, TITLE_MAX, typeLabels, type Card, type CardType, type Column, type Discipline, type Priority, type Task } from '../../lib/types'
 import { catSay, toast } from '../../state/feedback'
 import { ConfirmDialog, Dialog } from '../../ui/Dialog'
+import { DisciplineSelect } from '../disciplines/DisciplineSelect'
 import { DueFields } from './DueFields'
 
 type Props = {
   card: Card
   columns: Column[]
   boardName: string
+  disciplines: Discipline[]
+  /** Falso enquanto o banco não tem o cadastro de disciplinas: o campo volta a ser texto livre. */
+  disciplinesReady: boolean
+  onNewDiscipline: (onCreated: (discipline: Discipline) => void) => void
   onClose: () => void
   onSave: (card: Card) => Promise<boolean>
   onDelete: () => void
   onDuplicate: () => void
 }
 
-const fieldsOf = (card: Card) => JSON.stringify([card.title, card.description, card.discipline, card.type, card.priority, card.dueStart, card.due, card.column])
+const fieldsOf = (card: Card) => JSON.stringify([card.title, card.description, card.disciplineId, card.discipline, card.type, card.priority, card.dueStart, card.due, card.column])
 
 /**
  * Detalhe da demanda. Os campos são salvos pelo botão "Salvar";
  * a lista de tarefas (marcar, adicionar, remover, timer) é salva na hora, como um checklist.
  */
-export function CardDialog({ card, columns, boardName, onClose, onSave, onDelete, onDuplicate }: Props) {
+export function CardDialog({ card, columns, boardName, disciplines, disciplinesReady, onNewDiscipline, onClose, onSave, onDelete, onDuplicate }: Props) {
   const [draft, setDraft] = useState(card)
   const [newTask, setNewTask] = useState('')
   const [now, setNow] = useState(() => Date.now())
@@ -136,7 +141,13 @@ export function CardDialog({ card, columns, boardName, onClose, onSave, onDelete
               <select className="select" value={draft.priority} onChange={(event) => set({ priority: event.target.value as Priority })}>{Object.entries(priorityLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select>
             </label>
             <label className="field"><span>Disciplina</span>
-              <input className="input" maxLength={120} value={draft.discipline} placeholder="Ex.: Banco de Dados" onChange={(event) => set({ discipline: event.target.value })} />
+              {disciplinesReady ? (
+                <DisciplineSelect disciplines={disciplines} value={draft.disciplineId} legacyName={draft.discipline}
+                  onChange={(id) => set({ disciplineId: id, discipline: disciplines.find((item) => item.id === id)?.name ?? '' })}
+                  onCreate={() => onNewDiscipline((created) => set({ disciplineId: created.id, discipline: created.name }))} />
+              ) : (
+                <input className="input" maxLength={120} value={draft.discipline} placeholder="Ex.: Banco de Dados" onChange={(event) => set({ discipline: event.target.value })} />
+              )}
             </label>
           </aside>
         </div>

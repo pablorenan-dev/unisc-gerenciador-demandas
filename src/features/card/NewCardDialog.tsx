@@ -1,23 +1,26 @@
 import { useId, useState } from 'react'
-import { priorityLabels, TITLE_MAX, typeLabels, type Card, type CardType, type Column, type Priority } from '../../lib/types'
+import { priorityLabels, TITLE_MAX, typeLabels, type Card, type CardType, type Column, type Discipline, type Priority } from '../../lib/types'
 import type { NewCard } from '../../state/board'
 import { toast } from '../../state/feedback'
 import { Dialog } from '../../ui/Dialog'
+import { DisciplineSelect } from '../disciplines/DisciplineSelect'
 import { DueFields } from './DueFields'
 
 type Props = {
   columns: Column[]
-  disciplines: string[]
+  disciplines: Discipline[]
+  disciplinesReady: boolean
+  onNewDiscipline: (onCreated: (discipline: Discipline) => void) => void
   preset: { column?: string; due?: string }
   onClose: () => void
   onCreate: (input: NewCard) => Promise<Card | null>
 }
 
-export function NewCardDialog({ columns, disciplines, preset, onClose, onCreate }: Props) {
+export function NewCardDialog({ columns, disciplines, disciplinesReady, onNewDiscipline, preset, onClose, onCreate }: Props) {
   const formId = useId()
-  const listId = useId()
   const [title, setTitle] = useState('')
   const [discipline, setDiscipline] = useState('')
+  const [disciplineId, setDisciplineId] = useState<string | null>(null)
   const [column, setColumn] = useState(preset.column ?? columns[0]?.id ?? '')
   const [type, setType] = useState<CardType>('trabalho')
   const [priority, setPriority] = useState<Priority>('media')
@@ -29,7 +32,7 @@ export function NewCardDialog({ columns, disciplines, preset, onClose, onCreate 
     event.preventDefault()
     if (!title.trim() || invalidRange || busy) return
     setBusy(true)
-    const created = await onCreate({ title, discipline: discipline.trim(), column, type, priority, ...dates })
+    const created = await onCreate({ title, disciplineId, discipline: discipline.trim(), column, type, priority, ...dates })
     setBusy(false)
     if (created) { toast.success('Demanda criada.'); onClose() }
   }
@@ -45,8 +48,11 @@ export function NewCardDialog({ columns, disciplines, preset, onClose, onCreate 
         </label>
         <div className="form__row">
           <label className="field"><span>Disciplina <em>(opcional)</em></span>
-            <input className="input" list={listId} maxLength={120} placeholder="Ex.: Estruturas de Dados" value={discipline} onChange={(event) => setDiscipline(event.target.value)} />
-            <datalist id={listId}>{disciplines.map((item) => <option key={item} value={item} />)}</datalist>
+            {disciplinesReady ? (
+              <DisciplineSelect disciplines={disciplines} value={disciplineId} onChange={setDisciplineId} onCreate={() => onNewDiscipline((created) => setDisciplineId(created.id))} />
+            ) : (
+              <input className="input" maxLength={120} placeholder="Ex.: Estruturas de Dados" value={discipline} onChange={(event) => setDiscipline(event.target.value)} />
+            )}
           </label>
           <label className="field"><span>Coluna</span>
             <select className="select" value={column} onChange={(event) => setColumn(event.target.value)}>{columns.map((item) => <option key={item.id} value={item.id}>{item.title}</option>)}</select>

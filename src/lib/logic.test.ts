@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { safeColor } from './api'
+import { safeIcon, suggestIcon } from './disciplines'
 import { daysUntil, dueLabel, dueTone, formatDuration, parseISODate, startOfWeek, toISODate } from './dates'
 import { briefing, buildPlan, emptyFilters, isDone, matchesFilters, summarize } from './insights'
 import { planMove } from './order'
@@ -12,7 +13,7 @@ const columns: Column[] = [
   { id: 'todo', title: 'A fazer', color: '#000', position: 1000 },
   { id: 'done', title: 'Concluído', color: '#000', position: 2000 },
 ]
-const card = (patch: Partial<Card>): Card => ({ id: 'c', column: 'todo', position: 1000, title: 'Demanda', description: '', discipline: '', type: 'trabalho', priority: 'media', dueStart: '', due: '', labels: [], tasks: [], ...patch })
+const card = (patch: Partial<Card>): Card => ({ id: 'c', column: 'todo', position: 1000, title: 'Demanda', description: '', disciplineId: null, discipline: '', type: 'trabalho', priority: 'media', dueStart: '', due: '', labels: [], tasks: [], ...patch })
 
 describe('datas', () => {
   it('usa a data de hoje, e não uma data fixa, para calcular o prazo', () => {
@@ -147,5 +148,22 @@ describe('segurança', () => {
     expect(safeColor('url(https://exemplo.com/rastreio.png)')).toBe('#a8a29e')
     expect(safeColor('red; background-image: url(x)')).toBe('#a8a29e')
     expect(safeColor(null)).toBe('#a8a29e')
+  })
+})
+
+describe('disciplinas', () => {
+  it('sugere o ícone pelo nome, com ou sem acento', () => {
+    expect(suggestIcon('Banco de Dados II')).toBe('database')
+    expect(suggestIcon('Estruturas de Dados')).toBe('puzzle')
+    expect(suggestIcon('Inteligência Artificial')).toBe('brain')
+    expect(suggestIcon('Cálculo I')).toBe('calculator')
+    expect(suggestIcon('Redes de Computadores')).toBe('network')
+    expect(suggestIcon('Filosofia')).toBe('book')
+  })
+
+  it('troca ícone desconhecido vindo do banco pelo padrão', () => {
+    expect(safeIcon('database')).toBe('database')
+    expect(safeIcon('<script>')).toBe('book')
+    expect(safeIcon(null)).toBe('book')
   })
 })

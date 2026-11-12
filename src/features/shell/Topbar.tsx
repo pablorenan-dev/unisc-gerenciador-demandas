@@ -1,4 +1,4 @@
-import { CalendarDays, Check, ChevronDown, Columns3, Keyboard, LayoutDashboard, LogOut, Monitor, Moon, Pencil, Plus, Settings, Sun, Target, Trash2, Volume2, VolumeX } from 'lucide-react'
+import { CalendarDays, Check, ChevronDown, Columns3, GraduationCap, Keyboard, LayoutDashboard, LogOut, Monitor, Moon, Pencil, Plus, Settings, Sun, Target, Trash2, Volume2, VolumeX } from 'lucide-react'
 import { Link, NavLink } from 'react-router-dom'
 import type { Board } from '../../lib/types'
 import { Chiquinho } from '../../mascot/Chiquinho'
@@ -17,6 +17,7 @@ type Props = {
   onSwitch: (id: string) => void
   onCreateBoard: () => void
   onRenameBoard: () => void
+  onDisciplines: () => void
   onDeleteBoard: () => void
   onSettings: () => void
   onShortcuts: () => void
@@ -26,7 +27,7 @@ type Props = {
  * Barra superior. Esquerda: marca + quadro atual (o contexto de tudo).
  * Centro: as três visões do quadro. Direita: ação principal + menu da conta.
  */
-export function Topbar({ board, boards, base, userName, userEmail, onNewCard, onSwitch, onCreateBoard, onRenameBoard, onDeleteBoard, onSettings, onShortcuts }: Props) {
+export function Topbar({ board, boards, base, userName, userEmail, onNewCard, onSwitch, onCreateBoard, onRenameBoard, onDeleteBoard, onDisciplines, onSettings, onShortcuts }: Props) {
   const prefs = usePrefs()
   const { signOut } = useAuth()
   const initials = userName.trim().slice(0, 2).toUpperCase() || '?'
@@ -45,6 +46,7 @@ export function Topbar({ board, boards, base, userName, userEmail, onNewCard, on
           {boards.map((item) => <MenuItem key={item.id} checked={item.id === board.id} onSelect={() => { close(); if (item.id !== board.id) onSwitch(item.id) }}>{item.name}</MenuItem>)}
           <MenuSeparator />
           <MenuItem icon={<Plus size={16} />} onSelect={() => { close(); onCreateBoard() }}>Novo quadro</MenuItem>
+          <MenuItem icon={<GraduationCap size={16} />} onSelect={() => { close(); onDisciplines() }}>Disciplinas deste quadro</MenuItem>
           <MenuItem icon={<Pencil size={16} />} onSelect={() => { close(); onRenameBoard() }}>Renomear este quadro</MenuItem>
           <MenuItem danger icon={<Trash2 size={16} />} disabled={boards.length <= 1} onSelect={() => { close(); onDeleteBoard() }}>Excluir este quadro</MenuItem>
         </>}
