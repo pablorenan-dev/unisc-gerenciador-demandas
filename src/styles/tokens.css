@@ -68,6 +68,7 @@
   --shadow-2: 0 10px 28px #00000073;
   --shadow-3: 0 28px 70px #000000a6;
   --stripe: #ffffff0a;
+  --cat-shade: #17130f;   /* silhueta do Chiquinho nos cards: um tom abaixo de --surface */
 }
 
 /* Tema claro */
@@ -99,6 +100,7 @@
   --shadow-2: 0 10px 28px #5c3d1426;
   --shadow-3: 0 28px 70px #5c3d1440;
   --stripe: #5c3d140a;
+  --cat-shade: #e3d7c4;
 }
 
 /* Cor de cada tipo de demanda (usada nas etiquetas) */

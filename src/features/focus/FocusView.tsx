@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { ArrowRight, Check, Clock3, Plus, Timer } from 'lucide-react'
 import { useOutletContext } from 'react-router-dom'
 import { dueLabel, dueTone, formatDuration } from '../../lib/dates'
-import { buildPlan, type PlanItem } from '../../lib/insights'
+import { buildPlan, finishTask, type PlanItem } from '../../lib/insights'
 import type { PomodoroLink } from '../../lib/pomodoro'
 import { pomodoro, usePomodoro } from '../../state/pomodoro'
 import { PomodoroPanel } from './Pomodoro'
@@ -40,7 +40,7 @@ export default function FocusView() {
   function completeStep(item: PlanItem) {
     const { card, nextTask } = item
     if (nextTask) {
-      const tasks = card.tasks.map((task) => (task.id === nextTask.id ? { ...task, done: true, timerStartedAt: null } : task))
+      const tasks = card.tasks.map((task) => (task.id === nextTask.id ? finishTask(task) : task))
       void store.saveCard({ ...card, tasks }).then((ok) => {
         if (!ok) return
         const left = tasks.filter((task) => !task.done).length

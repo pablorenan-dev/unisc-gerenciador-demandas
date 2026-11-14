@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { safeColor } from './api'
 import { safeIcon, suggestIcon } from './disciplines'
 import { daysUntil, dueLabel, dueTone, formatDuration, parseISODate, startOfWeek, toISODate } from './dates'
-import { briefing, buildPlan, emptyFilters, isDone, matchesFilters, summarize } from './insights'
+import { briefing, buildPlan, emptyFilters, finishTask, isDone, matchesFilters, summarize, taskSeconds } from './insights'
 import { planMove } from './order'
 import { friendlyError } from './supabase'
 import type { Card, Column } from './types'
@@ -111,6 +111,26 @@ describe('mensagens de erro', () => {
   it('traduz erros de autenticação e nunca mostra a mensagem crua', () => {
     expect(friendlyError({ message: 'Invalid login credentials' })).toBe('E-mail ou senha incorretos.')
     expect(friendlyError({ message: 'relation "cards" violates row-level security policy' }, 'Não foi possível salvar.')).toBe('Não foi possível salvar.')
+  })
+
+  it('diferencia os limites do cadastro: cota de e-mails do projeto, espera por pessoa e excesso de tentativas', () => {
+    expect(friendlyError({ message: 'email rate limit exceeded' })).toMatch(/limite de e-mails do sistema.*uma hora/)
+    expect(friendlyError({ message: 'For security purposes, you can only request this after 42 seconds.' })).toBe('Aguarde 42 segundos antes de pedir de novo.')
+    expect(friendlyError({ message: 'Request rate limit reached' })).toMatch(/Muitas tentativas/)
+  })
+})
+
+describe('tempo das tarefas', () => {
+  const start = new Date(2026, 10, 12, 15, 0).getTime()
+  const running = { id: 't', title: 'Escrever', done: false, elapsedSeconds: 120, timerStartedAt: new Date(start).toISOString() }
+
+  it('soma o timer que está rodando ao tempo já registrado', () => {
+    expect(taskSeconds(running, start + 90_000)).toBe(210)
+    expect(taskSeconds({ ...running, timerStartedAt: null }, start + 90_000)).toBe(120)
+  })
+
+  it('concluir a tarefa para o timer sem perder o tempo que estava correndo', () => {
+    expect(finishTask(running, start + 90_000)).toEqual({ ...running, done: true, elapsedSeconds: 210, timerStartedAt: null })
   })
 })
 

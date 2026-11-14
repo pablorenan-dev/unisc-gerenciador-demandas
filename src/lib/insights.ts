@@ -1,12 +1,23 @@
 import { daysUntil, isWeekend } from './dates'
 import type { Mood } from '../state/feedback'
-import type { Card, CardType, Column, Priority } from './types'
+import type { Card, CardType, Column, Priority, Task } from './types'
 
 /** Uma demanda está concluída se está na última coluna do quadro ou se todas as suas tarefas foram feitas. */
 export function isDone(card: Card, columns: Column[]): boolean {
   const last = columns[columns.length - 1]
   if (last && columns.length > 1 && card.column === last.id) return true
   return card.tasks.length > 0 && card.tasks.every((task) => task.done)
+}
+
+/** Tempo registrado na tarefa, em segundos, contando o timer que estiver rodando. */
+export function taskSeconds(task: Task, now: number = Date.now()): number {
+  const running = task.timerStartedAt ? Math.max(0, Math.floor((now - new Date(task.timerStartedAt).getTime()) / 1000)) : 0
+  return task.elapsedSeconds + running
+}
+
+/** Marca a tarefa como feita e para o timer, guardando o tempo que estava correndo. */
+export function finishTask(task: Task, now: number = Date.now()): Task {
+  return { ...task, done: true, elapsedSeconds: taskSeconds(task, now), timerStartedAt: null }
 }
 
 export type Filters = {

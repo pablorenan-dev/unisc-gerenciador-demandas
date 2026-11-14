@@ -27,6 +27,8 @@ export type BoardContext = {
   clearFilters: () => void
   visibleCards: Card[]
   openCard: (id: string) => void
+  /** Demanda aberta no diálogo de detalhe, se houver. */
+  openCardId: string | null
   openNew: (preset?: { column?: string; due?: string }) => void
   /** Disciplinas do quadro por id, para mostrar ícone e cor nos cards. */
   disciplineById: Map<string, Discipline>
@@ -147,7 +149,7 @@ function BoardScreen() {
     )
   }
 
-  const context: BoardContext = { board, store, filters, setFilters, clearFilters, visibleCards, openCard: setSelectedId, openNew: (preset) => setNewCard(preset ?? {}), disciplineById, openDisciplines: () => setDisciplinesDialog({}) }
+  const context: BoardContext = { board, store, filters, setFilters, clearFilters, visibleCards, openCard: setSelectedId, openCardId: selected?.id ?? null, openNew: (preset) => setNewCard(preset ?? {}), disciplineById, openDisciplines: () => setDisciplinesDialog({}) }
 
   return (
     <div className={`app app--${view}`}>

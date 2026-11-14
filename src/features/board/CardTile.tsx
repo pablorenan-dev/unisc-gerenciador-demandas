@@ -2,11 +2,14 @@ import { CalendarClock, CheckCircle2, Copy, Flag, ListChecks, MessageSquareText,
 import { dueLabel, dueTone, formatRange } from '../../lib/dates'
 import { priorityLabels, typeLabels, type Card, type Column, type Discipline } from '../../lib/types'
 import { DisciplineTag } from '../disciplines/DisciplineIcon'
+import { MiniChico, type MiniState } from '../../mascot/MiniChico'
 import { Menu, MenuItem, MenuLabel, MenuSeparator } from '../../ui/Menu'
 
 type Props = {
   card: Card
   done: boolean
+  /** O que o Chiquinho do card está fazendo. Sem isso, ele só acompanha `done`. */
+  mini?: MiniState
   discipline?: Discipline
   columns?: Column[]
   onOpen?: () => void
@@ -16,7 +19,7 @@ type Props = {
 }
 
 /** Conteúdo visual de uma demanda no quadro. Usado na coluna e no "fantasma" do arraste. */
-export function CardTile({ card, done, discipline, columns, onOpen, onMove, onDuplicate, onDelete }: Props) {
+export function CardTile({ card, done, mini, discipline, columns, onOpen, onMove, onDuplicate, onDelete }: Props) {
   const tasksDone = card.tasks.filter((task) => task.done).length
   const tone = done ? 'done' : dueTone(card.due)
   const timing = card.tasks.some((task) => task.timerStartedAt)
@@ -28,6 +31,7 @@ export function CardTile({ card, done, discipline, columns, onOpen, onMove, onDu
         {card.priority !== 'media' && card.priority !== 'baixa' && (
           <span className={`flag flag--${card.priority}`}><Flag size={12} aria-hidden /> {priorityLabels[card.priority]}</span>
         )}
+        <MiniChico className="card__cat" state={mini ?? (done ? 'done' : 'idle')} />
         {columns && (
           <span className="card__menu">
             <Menu label={`Opções de ${card.title}`} trigger={<MoreHorizontal size={18} aria-hidden />} triggerClassName="icon-btn icon-btn--sm">

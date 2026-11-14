@@ -81,3 +81,42 @@
   .companion__button { -webkit-tap-highlight-color: transparent; }
   .bubble { max-width: min(260px, calc(100vw - 32px)); margin: 0 4px 0 0; border-radius: 18px 18px 4px 18px; }
 }
+
+/* ------------------------- Chiquinho em miniatura -------------------------
+ * Silhueta em SVG que mora nos cards e nas tarefas (mascot/MiniChico.tsx).
+ * --mc-fill pinta a cabeça; --mc-face é a cor do fundo onde ele está e "recorta" olhos e boca.
+ * Parado, ele é só um tom abaixo do fundo; trabalhando ou comemorando, ganha cor.
+ * O olhar (--look-x/--look-y) e a piscada ([data-blink]) vêm de mascot/gaze.ts.
+ */
+.mini-chico { --mc-fill: var(--cat-shade); flex: none; overflow: visible; color: var(--mc-fill); transition: color var(--slow); }
+.mini-chico__head { fill: currentColor; stroke: currentColor; stroke-width: 1.6; stroke-linejoin: round; }
+.mini-chico__eye, .mini-chico__nose, .mini-chico__mouth { fill: var(--mc-face, var(--surface)); }
+.mini-chico__line { fill: none; stroke: var(--mc-face, var(--surface)); stroke-width: 1.2; stroke-linecap: round; stroke-linejoin: round; }
+.mini-chico__eyes { transform-box: fill-box; transform-origin: 50% 50%; transition: transform 70ms linear; }
+.mini-chico[data-blink] .mini-chico__eyes { transform: scaleY(0.1); }
+.mini-chico__pupils { fill: currentColor; transform: translate(calc(var(--look-x, 0) * 1.3px), calc(var(--look-y, 0) * 0.9px)); transition: transform 140ms ease-out; }
+
+/* working: de lápis na pata, olhando para o papel */
+.mini-chico--working { --mc-fill: color-mix(in srgb, var(--text-3) 62%, var(--surface)); }
+.mini-chico--working .mini-chico__body { animation: mc-nod 1.1s ease-in-out infinite; }
+.mini-chico--working .mini-chico__pupils { transform: translate(0.8px, 0.9px); }
+.mini-chico__pencil { animation: mc-write 0.6s ease-in-out infinite; }
+.mini-chico__shaft { fill: var(--amber); }
+.mini-chico__eraser { fill: #ff7a66; }
+.mini-chico__wood { fill: #f3d9a4; }
+.mini-chico__lead { fill: var(--on-accent); }
+.mini-chico__paw { fill: currentColor; stroke: var(--mc-face, var(--surface)); stroke-width: 0.9; animation: mc-paw 0.6s ease-in-out infinite; }
+.mini-chico__scribble { fill: none; stroke: var(--text-3); stroke-width: 1.1; stroke-linecap: round; stroke-dasharray: 1; animation: mc-scribble 2.4s linear infinite; }
+@keyframes mc-nod { 50% { transform: translateY(0.6px); } }
+@keyframes mc-write { 0%, 100% { transform: rotate(-8deg); } 25% { transform: rotate(6deg); } 50% { transform: rotate(-4deg); } 75% { transform: rotate(9deg); } }
+@keyframes mc-paw { 0%, 100% { transform: translateX(-0.5px); } 25%, 75% { transform: translateX(0.5px); } 50% { transform: translateX(-0.2px); } }
+@keyframes mc-scribble { 0% { stroke-dashoffset: 1; opacity: 1; } 75%, 90% { stroke-dashoffset: 0; opacity: 1; } 100% { stroke-dashoffset: 0; opacity: 0; } }
+
+/* happy: pulinhos e brilhos, bem verde. Dura o tempo de CELEBRATION_MS (state/celebration.ts). */
+.mini-chico--happy { --mc-fill: var(--ok); animation: mc-hop 0.56s var(--ease) 3; }
+.mini-chico__sparks { fill: none; stroke: var(--ok); stroke-width: 1.3; stroke-linecap: round; animation: mc-twinkle 0.56s ease-in-out 3; }
+@keyframes mc-hop { 0%, 100% { transform: none; } 35% { transform: translateY(-20%) rotate(-9deg); } 70% { transform: translateY(0) rotate(6deg); } }
+@keyframes mc-twinkle { 0%, 100% { opacity: 0.15; } 50% { opacity: 1; } }
+
+/* done: volta ao normal, só que verde como o fundo */
+.mini-chico--done { --mc-fill: color-mix(in srgb, var(--ok) 50%, var(--mc-face, var(--surface))); }

@@ -59,12 +59,24 @@
 
 .card { position: relative; display: flex; flex-direction: column; gap: 6px; padding: var(--sp-3); border: 1px solid var(--border); border-radius: var(--r-md); background: var(--surface); box-shadow: var(--shadow-1); cursor: grab; touch-action: manipulation; user-select: none; -webkit-user-select: none; transition: border-color var(--fast), box-shadow var(--fast); }
 .card:hover { border-color: var(--border-strong); }
+.card:hover .mini-chico--idle { --mc-fill: color-mix(in srgb, var(--cat-shade) 78%, var(--text-3)); }
 .card:focus-visible { outline: 3px solid var(--accent); outline-offset: 1px; border-radius: var(--r-md); }
 .card--ghost { opacity: 0.35; }
 .card--overlay { cursor: grabbing; border-color: var(--accent); box-shadow: var(--shadow-3); transform: rotate(2.5deg); }
+/* Concluída: o card fica verdinho e o Chiquinho dele também (--mc-face é a cor do fundo, usada nos olhos). */
+.card--done { --card-done: color-mix(in srgb, var(--ok) 10%, var(--surface)); --mc-face: var(--card-done); border-color: color-mix(in srgb, var(--ok) 28%, var(--border)); background: var(--card-done); }
+.card--done:hover { border-color: color-mix(in srgb, var(--ok) 55%, var(--border-strong)); }
 .card--done .card__title { color: var(--text-2); text-decoration: line-through; text-decoration-color: var(--text-3); }
+.card--celebrate { animation: done-flash 1.2s var(--ease); }
+@keyframes done-flash {
+  0% { background: color-mix(in srgb, var(--ok) 42%, var(--surface)); box-shadow: 0 0 0 0 color-mix(in srgb, var(--ok) 70%, transparent); }
+  60% { box-shadow: 0 0 0 9px transparent; }
+  100% { box-shadow: 0 0 0 9px transparent; }
+}
 .card__top { display: flex; align-items: center; gap: var(--sp-2); min-height: 22px; }
 .card__menu { margin: -6px -6px -6px auto; }
+.card__cat { margin: -3px 0 -3px auto; }
+.card__cat + .card__menu { margin-left: 0; }
 .card__title { font-size: var(--fs-md); font-weight: 700; line-height: 1.35; overflow-wrap: anywhere; }
 .card__discipline { font-size: var(--fs-sm); color: var(--text-2); }
 .card__meta { display: flex; align-items: center; flex-wrap: wrap; gap: var(--sp-2); margin-top: 2px; }
@@ -149,6 +161,7 @@ button.stat:hover { border-color: var(--border-strong); background: var(--surfac
 /* ------------------------- Detalhe da demanda ------------------------- */
 .detail { display: grid; grid-template-columns: minmax(0, 1fr) 260px; gap: var(--sp-6); }
 .detail__crumbs { display: flex; align-items: center; flex-wrap: wrap; gap: var(--sp-2); font-size: var(--fs-sm); font-weight: 600; color: var(--text-2); }
+.detail__cat { margin: -5px 0 -5px auto; }
 .detail__main, .detail__side { display: flex; flex-direction: column; gap: var(--sp-4); min-width: 0; }
 .detail__side { padding: var(--sp-4); border-radius: var(--r-lg); background: var(--bg-sunken); align-self: start; }
 textarea.detail__title { padding: 6px 10px; margin-left: -10px; width: calc(100% + 10px); border-color: transparent; background: transparent; font-size: var(--fs-xl); font-weight: 800; line-height: 1.25; resize: none; field-sizing: content; }
@@ -159,10 +172,13 @@ textarea.detail__title { padding: 6px 10px; margin-left: -10px; width: calc(100%
 .tasks { display: flex; flex-direction: column; gap: var(--sp-3); }
 .tasks__heading { display: flex; align-items: baseline; justify-content: space-between; }
 .tasks__total { font-size: var(--fs-sm); font-weight: 800; color: var(--accent-text); }
-.tasks__list { display: flex; flex-direction: column; }
-.task { display: flex; align-items: center; gap: var(--sp-2); min-height: 44px; padding: 4px 0; border-bottom: 1px solid var(--border); }
+.tasks__list { display: flex; flex-direction: column; gap: 2px; }
+.task { display: flex; align-items: center; gap: var(--sp-2); min-height: 44px; padding: 4px var(--sp-2); border-radius: var(--r-md); transition: background var(--slow); }
 .task__title { flex: 1; min-width: 0; font-size: var(--fs-md); font-weight: 600; overflow-wrap: anywhere; }
-.task--done .task__title { color: var(--text-3); text-decoration: line-through; }
+.task--done { --task-done: color-mix(in srgb, var(--ok) 10%, var(--surface)); --mc-face: var(--task-done); background: var(--task-done); }
+.task--done .task__title { color: var(--text-2); text-decoration: line-through; text-decoration-color: var(--text-3); }
+.task--done .check[aria-checked='true'] { border-color: var(--ok); background: var(--ok); color: var(--surface); }
+.task--celebrate { animation: done-flash 1.2s var(--ease); }
 .task__time { font-size: var(--fs-sm); font-variant-numeric: tabular-nums; color: var(--text-3); }
 .task__time--on { color: var(--info); font-weight: 800; }
 .check { display: grid; place-items: center; flex: none; width: 24px; height: 24px; padding: 0; border: 2px solid var(--border-strong); border-radius: 7px; background: transparent; color: var(--on-accent); transition: background var(--fast), border-color var(--fast); }

@@ -7,7 +7,10 @@ import { useOutletContext } from 'react-router-dom'
 import { countActiveFilters, isDone } from '../../lib/insights'
 import { byPosition } from '../../lib/order'
 import { COLUMN_TITLE_MAX, columnColors, TITLE_MAX, type Card, type Column, type Discipline } from '../../lib/types'
+import { isRunning } from '../../lib/pomodoro'
 import { Chiquinho } from '../../mascot/Chiquinho'
+import { miniState, useCelebration } from '../../state/celebration'
+import { usePomodoro } from '../../state/pomodoro'
 import { ConfirmDialog, PromptDialog } from '../../ui/Dialog'
 import { Menu, MenuItem, MenuLabel, MenuSeparator } from '../../ui/Menu'
 import type { BoardContext } from '../shell/BoardLayout'
@@ -16,7 +19,10 @@ import { CardTile } from './CardTile'
 type Lists = Record<string, string[]>
 
 export default function BoardView() {
-  const { store, visibleCards, filters, clearFilters, openCard, openNew, disciplineById } = useOutletContext<BoardContext>()
+  const { store, visibleCards, filters, clearFilters, openCard, openCardId, openNew, disciplineById } = useOutletContext<BoardContext>()
+  // O Chiquinho do card "trabalha" enquanto a demanda está aberta ou em foco no pomodoro.
+  const timer = usePomodoro()
+  const focusCardId = timer.phase === 'focus' && isRunning(timer) ? timer.link?.cardId ?? null : null
   const { columns, cards } = store
   const [activeId, setActiveId] = useState<string | null>(null)
   const [preview, setPreview] = useState<Lists | null>(null)
@@ -133,7 +139,7 @@ export default function BoardView() {
         }}>
         <div className="board" role="list" aria-label="Colunas do quadro">
           {columns.map((column, index) => (
-            <ColumnView key={column.id} column={column} index={index} total={columns.length} ids={shown[column.id] ?? []} byId={byId} disciplineById={disciplineById} columns={columns} dragging={Boolean(activeId)}
+            <ColumnView key={column.id} column={column} index={index} total={columns.length} ids={shown[column.id] ?? []} byId={byId} disciplineById={disciplineById} columns={columns} dragging={Boolean(activeId)} openCardId={openCardId} focusCardId={focusCardId}
               countAll={filtering ? cards.filter((card) => card.column === column.id).length : (shown[column.id] ?? []).length}
               onOpen={openCard}
               onQuickAdd={(title) => store.addCard({ title, column: column.id })}
@@ -148,7 +154,10 @@ export default function BoardView() {
           <button type="button" className="add-column" onClick={() => setDialog({ kind: 'add' })}><Plus size={18} aria-hidden /> Adicionar coluna</button>
         </div>
         <DragOverlay dropAnimation={{ duration: 180, easing: 'cubic-bezier(.2,.8,.2,1)' }}>
-          {activeCard && <article className="card card--overlay"><CardTile card={activeCard} done={isDone(activeCard, columns)} discipline={disciplineById.get(activeCard.disciplineId ?? '')} /></article>}
+          {activeCard && (() => {
+            const done = isDone(activeCard, columns)
+            return <article className={`card card--overlay ${done ? 'card--done' : ''}`}><CardTile card={activeCard} done={done} discipline={disciplineById.get(activeCard.disciplineId ?? '')} /></article>
+          })()}
         </DragOverlay>
       </DndContext>
 
@@ -172,6 +181,8 @@ type ColumnProps = {
   disciplineById: Map<string, Discipline>
   columns: Column[]
   dragging: boolean
+  openCardId: string | null
+  focusCardId: string | null
   countAll: number
   onOpen: (id: string) => void
   onQuickAdd: (title: string) => Promise<Card | null>
@@ -184,7 +195,7 @@ type ColumnProps = {
   onShift: (direction: -1 | 1) => void
 }
 
-function ColumnView({ column, index, total, ids, byId, disciplineById, columns, dragging, countAll, onOpen, onQuickAdd, onMove, onDuplicate, onDelete, onRename, onRemove, onColor, onShift }: ColumnProps) {
+function ColumnView({ column, index, total, ids, byId, disciplineById, columns, dragging, openCardId, focusCardId, countAll, onOpen, onQuickAdd, onMove, onDuplicate, onDelete, onRename, onRemove, onColor, onShift }: ColumnProps) {
   const { setNodeRef, isOver } = useDroppable({ id: column.id })
   const [adding, setAdding] = useState(false)
   const [title, setTitle] = useState('')
@@ -226,7 +237,7 @@ function ColumnView({ column, index, total, ids, byId, disciplineById, columns, 
         <div ref={setNodeRef} className="column__cards">
           {ids.map((id) => {
             const card = byId.get(id)
-            return card ? <SortableCard key={id} card={card} discipline={disciplineById.get(card.disciplineId ?? '')} columns={columns} onOpen={() => onOpen(id)} onMove={(to) => onMove(id, to)} onDuplicate={() => onDuplicate(id)} onDelete={() => onDelete(id)} /> : null
+            return card ? <SortableCard key={id} card={card} busy={id === openCardId || id === focusCardId} discipline={disciplineById.get(card.disciplineId ?? '')} columns={columns} onOpen={() => onOpen(id)} onMove={(to) => onMove(id, to)} onDuplicate={() => onDuplicate(id)} onDelete={() => onDelete(id)} /> : null
           })}
           {ids.length === 0 && !adding && <p className="column__empty">{dragging ? 'Solte aqui' : 'Nada por aqui'}</p>}
         </div>
@@ -251,18 +262,20 @@ function ColumnView({ column, index, total, ids, byId, disciplineById, columns, 
   )
 }
 
-function SortableCard({ card, discipline, columns, onOpen, onMove, onDuplicate, onDelete }: { card: Card; discipline?: Discipline; columns: Column[]; onOpen: () => void; onMove: (column: string) => void; onDuplicate: () => void; onDelete: () => void }) {
+function SortableCard({ card, busy, discipline, columns, onOpen, onMove, onDuplicate, onDelete }: { card: Card; busy: boolean; discipline?: Discipline; columns: Column[]; onOpen: () => void; onMove: (column: string) => void; onDuplicate: () => void; onDelete: () => void }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: card.id })
   const done = isDone(card, columns)
+  const celebrating = useCelebration(card.id, done)
+  const mini = miniState({ celebrating, done, working: busy || card.tasks.some((task) => task.timerStartedAt) })
   return (
-    <article ref={setNodeRef} className={`card ${isDragging ? 'card--ghost' : ''} ${done ? 'card--done' : ''}`} style={{ transform: CSS.Translate.toString(transform), transition }}
+    <article ref={setNodeRef} className={`card ${isDragging ? 'card--ghost' : ''} ${done ? 'card--done' : ''} ${celebrating ? 'card--celebrate' : ''}`} style={{ transform: CSS.Translate.toString(transform), transition }}
       {...attributes} {...listeners} aria-roledescription="demanda arrastável"
       onClick={onOpen}
       onKeyDown={(event) => {
         if (event.key === 'Enter' && event.target === event.currentTarget) { event.preventDefault(); onOpen(); return }
         listeners?.onKeyDown?.(event)
       }}>
-      <CardTile card={card} done={done} discipline={discipline} columns={columns} onOpen={onOpen} onMove={onMove} onDuplicate={onDuplicate} onDelete={onDelete} />
+      <CardTile card={card} done={done} mini={mini} discipline={discipline} columns={columns} onOpen={onOpen} onMove={onMove} onDuplicate={onDuplicate} onDelete={onDelete} />
     </article>
   )
 }

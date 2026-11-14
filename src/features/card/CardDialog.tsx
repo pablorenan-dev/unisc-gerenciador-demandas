@@ -1,7 +1,10 @@
 import { useEffect, useState } from 'react'
 import { Check, Copy, Pause, Play, Plus, Trash2, X } from 'lucide-react'
 import { formatDuration } from '../../lib/dates'
+import { finishTask, isDone, taskSeconds } from '../../lib/insights'
 import { priorityLabels, TITLE_MAX, typeLabels, type Card, type CardType, type Column, type Discipline, type Priority, type Task } from '../../lib/types'
+import { MiniChico } from '../../mascot/MiniChico'
+import { miniState, useCelebration } from '../../state/celebration'
 import { catSay, toast } from '../../state/feedback'
 import { ConfirmDialog, Dialog } from '../../ui/Dialog'
 import { DisciplineSelect } from '../disciplines/DisciplineSelect'
@@ -52,8 +55,10 @@ export function CardDialog({ card, columns, boardId, boardName, notesReady, onNo
   const invalidRange = Boolean(draft.dueStart && draft.due && draft.dueStart > draft.due)
   const canSave = dirty && draft.title.trim().length > 0 && !invalidRange && !saving
   const set = (patch: Partial<Card>) => setDraft((current) => ({ ...current, ...patch }))
-  const elapsed = (task: Task) => task.elapsedSeconds + (task.timerStartedAt ? Math.max(0, Math.floor((now - new Date(task.timerStartedAt).getTime()) / 1000)) : 0)
   const completed = tasks.filter((task) => task.done).length
+  // No detalhe o Chiquinho está sempre de lápis na mão; quando a demanda fecha, ele comemora e fica verde.
+  const done = isDone(card, columns)
+  const celebrating = useCelebration(card.id, done)
 
   /** Tarefas são gravadas imediatamente sobre a versão já salva do card (sem levar junto campos em edição). */
   function persistTasks(next: Task[]) {
@@ -69,7 +74,10 @@ export function CardDialog({ card, columns, boardId, boardName, notesReady, onNo
     setNewTask('')
   }
 
-  const updateTask = (id: string, patch: Partial<Task>) => persistTasks(tasks.map((task) => (task.id === id ? { ...task, ...patch } : task)))
+  const changeTask = (id: string, change: (task: Task) => Task) => persistTasks(tasks.map((task) => (task.id === id ? change(task) : task)))
+  // Concluir também para o timer (guardando o tempo); desmarcar só reabre a tarefa.
+  const toggleTask = (id: string) => changeTask(id, (task) => (task.done ? { ...task, done: false } : finishTask(task)))
+  const toggleTimer = (id: string) => changeTask(id, (task) => (task.timerStartedAt ? { ...task, elapsedSeconds: taskSeconds(task), timerStartedAt: null } : { ...task, timerStartedAt: new Date().toISOString() }))
 
   async function save() {
     if (!canSave) return
@@ -85,7 +93,7 @@ export function CardDialog({ card, columns, boardId, boardName, notesReady, onNo
   return (
     <>
       <Dialog title={`Demanda: ${card.title}`} size="lg" onClose={requestClose}
-        header={<div className="detail__crumbs"><span className={`chip chip--${draft.type}`}>{typeLabels[draft.type]}</span><span>{boardName}</span><span aria-hidden>›</span><span>{column?.title}</span></div>}
+        header={<div className="detail__crumbs"><span className={`chip chip--${draft.type}`}>{typeLabels[draft.type]}</span><span>{boardName}</span><span aria-hidden>›</span><span>{column?.title}</span><MiniChico className="detail__cat" size={30} state={miniState({ celebrating, done, working: true })} /></div>}
         footer={<>
           <div className="dialog__footer-start">
             <button type="button" className="btn btn--ghost" onClick={onDuplicate}><Copy size={16} aria-hidden /> Duplicar</button>
@@ -116,16 +124,7 @@ export function CardDialog({ card, columns, boardId, boardName, notesReady, onNo
               {tasks.length > 0 && <div className="meter meter--lg" role="progressbar" aria-label="Progresso das tarefas" aria-valuemin={0} aria-valuemax={tasks.length} aria-valuenow={completed}><span style={{ width: `${(completed / tasks.length) * 100}%` }} /></div>}
               <ul className="tasks__list">
                 {tasks.map((task) => (
-                  <li key={task.id} className={`task ${task.done ? 'task--done' : ''}`}>
-                    <button type="button" role="checkbox" aria-checked={task.done} aria-label={task.title} className="check" onClick={() => updateTask(task.id, { done: !task.done })}>{task.done && <Check size={14} aria-hidden />}</button>
-                    <span className="task__title">{task.title}</span>
-                    <span className={`task__time ${task.timerStartedAt ? 'task__time--on' : ''}`}>{formatDuration(elapsed(task))}</span>
-                    <button type="button" className="icon-btn icon-btn--sm" aria-label={task.timerStartedAt ? `Pausar timer de ${task.title}` : `Iniciar timer de ${task.title}`} title={task.timerStartedAt ? 'Pausar timer' : 'Iniciar timer'}
-                      onClick={() => updateTask(task.id, task.timerStartedAt ? { elapsedSeconds: elapsed(task), timerStartedAt: null } : { timerStartedAt: new Date().toISOString() })}>
-                      {task.timerStartedAt ? <Pause size={16} aria-hidden /> : <Play size={16} aria-hidden />}
-                    </button>
-                    <button type="button" className="icon-btn icon-btn--sm" aria-label={`Remover tarefa ${task.title}`} onClick={() => persistTasks(tasks.filter((item) => item.id !== task.id))}><X size={16} aria-hidden /></button>
-                  </li>
+                  <TaskRow key={task.id} task={task} seconds={taskSeconds(task, now)} onToggle={() => toggleTask(task.id)} onTimer={() => toggleTimer(task.id)} onRemove={() => persistTasks(tasks.filter((item) => item.id !== task.id))} />
                 ))}
               </ul>
               <form className="tasks__add" onSubmit={(event) => { event.preventDefault(); addTask() }}>
@@ -165,5 +164,23 @@ export function CardDialog({ card, columns, boardId, boardName, notesReady, onNo
       {confirm === 'discard' && <ConfirmDialog title="Descartar alterações?" text={dirty ? 'Você editou esta demanda e ainda não salvou.' : 'Há uma observação escrita que ainda não foi salva.'} confirmLabel="Descartar" danger onClose={() => setConfirm(null)} onConfirm={onClose} />}
       {confirm === 'delete' && <ConfirmDialog title="Excluir esta demanda?" text="Ela some do quadro junto com as tarefas. Você ainda tem alguns segundos para desfazer." confirmLabel="Excluir" danger onClose={() => setConfirm(null)} onConfirm={onDelete} />}
     </>
+  )
+}
+
+/** Uma linha do checklist. O Chiquinho da linha escreve enquanto o timer roda e comemora quando ela é concluída. */
+function TaskRow({ task, seconds, onToggle, onTimer, onRemove }: { task: Task; seconds: number; onToggle: () => void; onTimer: () => void; onRemove: () => void }) {
+  const timing = Boolean(task.timerStartedAt)
+  const celebrating = useCelebration(task.id, task.done)
+  return (
+    <li className={`task ${task.done ? 'task--done' : ''} ${celebrating ? 'task--celebrate' : ''}`}>
+      <button type="button" role="checkbox" aria-checked={task.done} aria-label={task.title} className="check" onClick={onToggle}>{task.done && <Check size={14} aria-hidden />}</button>
+      <span className="task__title">{task.title}</span>
+      <MiniChico className="task__cat" size={24} state={miniState({ celebrating, done: task.done, working: timing })} />
+      <span className={`task__time ${timing ? 'task__time--on' : ''}`}>{formatDuration(seconds)}</span>
+      <button type="button" className="icon-btn icon-btn--sm" aria-label={timing ? `Pausar timer de ${task.title}` : `Iniciar timer de ${task.title}`} title={timing ? 'Pausar timer' : 'Iniciar timer'} onClick={onTimer}>
+        {timing ? <Pause size={16} aria-hidden /> : <Play size={16} aria-hidden />}
+      </button>
+      <button type="button" className="icon-btn icon-btn--sm" aria-label={`Remover tarefa ${task.title}`} onClick={onRemove}><X size={16} aria-hidden /></button>
+    </li>
   )
 }

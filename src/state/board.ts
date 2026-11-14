@@ -98,6 +98,8 @@ export function useBoards(api: Api): BoardsState {
 export type NewCard = Partial<Omit<CardInput, 'title' | 'column'>> & { title: string; column?: string }
 
 const UNDO_MS = 5000
+/** Intervalo mínimo entre duas atualizações silenciosas do quadro ao voltar para a aba. */
+const REFRESH_MIN_MS = 30_000
 
 const emptyData: BoardData = { columns: [], cards: [], disciplines: [], disciplinesReady: true, notesReady: true }
 
@@ -138,8 +140,10 @@ export function useBoard(api: Api, boardId: string | undefined) {
     setData(normalized)
   }, [])
 
+  const lastFetch = useRef(0)
   const fetchBoard = useCallback(async (silent: boolean) => {
     if (!boardId) return
+    lastFetch.current = Date.now()
     try {
       const loaded = await api.loadBoard(boardId)
       // Não sobrescreve o estado se o usuário mexeu em algo enquanto a busca silenciosa acontecia.
@@ -170,7 +174,8 @@ export function useBoard(api: Api, boardId: string | undefined) {
 
   // Outra aba (ou outro aparelho) pode ter alterado o quadro: atualiza ao voltar para a aba.
   useEffect(() => {
-    const onVisible = () => { if (document.visibilityState === 'visible') void fetchBoard(true) }
+    // Alternar de aba várias vezes seguidas não precisa rebuscar tudo a cada volta.
+    const onVisible = () => { if (document.visibilityState === 'visible' && Date.now() - lastFetch.current > REFRESH_MIN_MS) void fetchBoard(true) }
     const flush = () => { pendingDeletes.current.forEach((entry) => { window.clearTimeout(entry.timer); entry.run() }); pendingDeletes.current.clear() }
     document.addEventListener('visibilitychange', onVisible)
     window.addEventListener('pagehide', flush)

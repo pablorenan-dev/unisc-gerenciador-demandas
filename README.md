@@ -20,7 +20,7 @@ Pomodoro: fica na visão Foco (atalho `4`). Continua contando ao trocar de tela 
 
 ## Banco de dados
 
-Execute as migrations de `supabase/migrations/` em ordem, no SQL Editor do Supabase (`0001` a `0013`). Todas são aditivas.
+Execute as migrations de `supabase/migrations/` em ordem, no SQL Editor do Supabase (`0001` a `0014`). Todas são aditivas.
 
 A `0009_integrity_and_account_deletion.sql` adiciona:
 - trigger que impede um card de apontar para a coluna de outro quadro;
@@ -55,6 +55,19 @@ Cada pessoa escolhe o horário e a antecedência (1 a 7 dias). O resumo traz as 
 
 Para trocar o token: `select vault.update_secret(id, 'novo-token') from vault.secrets where name = 'telegram_bot_token';`. Para conferir se está rodando: `select * from net._http_response order by created desc limit 5;`.
 
+A `0014_indexes_and_cron_cleanup.sql` é só manutenção: cria os índices que faltavam (`boards.owner_id`, `notes.author_id`), remove os redundantes e agenda uma limpeza diária do histórico do `pg_cron` (que, com o bot rodando a cada minuto, cresce ~1.600 linhas por dia e nunca é apagado sozinho). Não mexe em dados nem em policies.
+
+### Cadastro e limite de e-mails
+
+O Supabase Auth, com o servidor de e-mail embutido, envia no máximo **2 e-mails por hora para o projeto inteiro** (confirmação de cadastro e recuperação de senha somados). Depois disso, ninguém consegue criar conta nem recuperar senha até a hora virar; o app mostra "O limite de e-mails do sistema nesta hora foi atingido". Não é limite do banco e não tem como aumentar pelo código.
+
+Para resolver, no painel do Supabase:
+1. Authentication > Emails > SMTP Settings: ative um SMTP próprio (Resend, Brevo, Amazon SES…). É o que libera o limite.
+2. Authentication > Rate Limits: suba "Rate limit for sending emails" para o volume esperado (ex.: 100/h).
+3. Recomendado: Authentication > Attack Protection > CAPTCHA (Cloudflare Turnstile), para que um script não gaste a cota de todo mundo. Isso exige enviar o token do captcha no `signUp` e liberar o domínio do Turnstile na CSP (`public/_headers`).
+
+Para conferir se foi isso: Logs > Auth, buscando por `over_email_send_rate_limit`.
+
 No painel do Supabase, em Authentication > URL Configuration:
 - `Site URL`: a URL de produção;
 - Redirect URLs: `http://localhost:5173/**` e `https://SEU-DOMINIO/**` (o link de recuperação de senha volta para `/redefinir-senha`).
@@ -72,7 +85,7 @@ src/
   lib/        tipos, datas, ordenação, resumo/filtros, acesso ao Supabase (api.ts)
   state/      sessão (auth), quadros e demandas com atualização otimista (board), preferências, avisos
   ui/         diálogo e menu acessíveis
-  mascot/     Chiquinho (foto + adereços por humor), companheiro de canto, avisos, miado
+  mascot/     Chiquinho (foto + adereços por humor), MiniChico (silhueta em SVG dos cards e tarefas), companheiro de canto, miado
   features/   auth, shell (barra superior, filtros), board (Kanban), card, overview, calendar, settings
   styles/     tokens.css (design tokens), base.css, app.css, mascot.css
 ```

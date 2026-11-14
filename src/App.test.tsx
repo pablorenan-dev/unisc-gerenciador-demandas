@@ -66,6 +66,37 @@ describe('fluxos principais', () => {
     expect(await screen.findByRole('dialog', { name: 'Descartar alterações?' })).toBeInTheDocument()
   })
 
+  it('o Chiquinho em miniatura trabalha, comemora a conclusão e fica verde', async () => {
+    const user = await open()
+    await user.click(views().getByRole('link', { name: /kanban/i }))
+    const card = () => screen.getByRole('heading', { level: 3, name: 'Seminário de IA' }).closest('article')!
+    const cat = (element: Element) => element.querySelector('svg.mini-chico')!
+    expect(cat(card())).toHaveClass('mini-chico--idle')
+
+    // Abrir a demanda: ele pega o lápis, no card e no cabeçalho do detalhe.
+    await user.click(screen.getByRole('heading', { level: 3, name: 'Seminário de IA' }))
+    const dialog = await screen.findByRole('dialog', { name: /Seminário de IA/ })
+    expect(cat(card())).toHaveClass('mini-chico--working')
+    expect(dialog.querySelector('.detail__cat')).toHaveClass('mini-chico--working')
+
+    // Timer ligado: o da tarefa escreve. Concluir: para o timer, comemora e depois fica verde.
+    const row = within(dialog).getByText('Montar slides').closest('li')!
+    expect(cat(row)).toHaveClass('mini-chico--idle')
+    await user.click(within(row).getByRole('button', { name: 'Iniciar timer de Montar slides' }))
+    await waitFor(() => expect(cat(row)).toHaveClass('mini-chico--working'))
+    await user.click(within(row).getByRole('checkbox', { name: 'Montar slides' }))
+    await waitFor(() => expect(cat(row)).toHaveClass('mini-chico--happy'))
+    expect(row).toHaveClass('task--done', 'task--celebrate')
+    expect(within(row).getByRole('button', { name: 'Iniciar timer de Montar slides' })).toBeInTheDocument()
+
+    // Era a última tarefa: a demanda inteira foi concluída.
+    expect(card()).toHaveClass('card--done', 'card--celebrate')
+    expect(cat(card())).toHaveClass('mini-chico--happy')
+    await waitFor(() => expect(cat(row)).toHaveClass('mini-chico--done'), { timeout: 4000 })
+    expect(cat(card())).toHaveClass('mini-chico--done')
+    expect(card()).not.toHaveClass('card--celebrate')
+  })
+
   it('filtra pela busca e deixa claro como limpar', async () => {
     const user = await open()
     await user.click(views().getByRole('link', { name: /kanban/i }))

@@ -159,6 +159,7 @@ export function createSupabaseApi(client: SupabaseClient, userId: string): Api {
   // funcionando com a disciplina em texto, sem enviar a coluna nova.
   let disciplinesReady = true
   let notesReady = true
+  let notesProbed = false
   const cardFields = () => (disciplinesReady ? `${CARD_FIELDS}, discipline_id` : CARD_FIELDS)
   const storage = (bucket: Bucket) => client.storage.from(bucket)
 
@@ -218,18 +219,27 @@ export function createSupabaseApi(client: SupabaseClient, userId: string): Api {
     },
 
     async loadBoard(id) {
-      let { data: columnRows } = check(await client.from('columns').select('id, nome, cor, posicao').eq('board_id', id).order('posicao', { ascending: true }))
+      // Colunas, disciplinas e a sondagem das observações não dependem uma da outra: vão juntas,
+      // e o quadro abre em duas idas ao servidor em vez de quatro. A sondagem só se repete
+      // enquanto a tabela não existir (depois de confirmada, ela não some).
+      const [columnsResult, found, probe] = await Promise.all([
+        client.from('columns').select('id, nome, cor, posicao').eq('board_id', id).order('posicao', { ascending: true }),
+        client.from('disciplines').select(DISCIPLINE_FIELDS).eq('board_id', id).order('nome', { ascending: true }),
+        notesProbed ? null : client.from('notes').select('id').limit(0),
+      ])
+      let columnRows = check(columnsResult).data
       if (!columnRows?.length) {
         const created = check(await client.from('columns').insert(defaultColumns.map((column, index) => ({ board_id: id, nome: column.title, cor: column.color, posicao: (index + 1) * STEP }))).select('id, nome, cor, posicao'))
         columnRows = created.data
       }
-      const found = await client.from('disciplines').select(DISCIPLINE_FIELDS).eq('board_id', id).order('nome', { ascending: true })
       disciplinesReady = !isMissingSchema(found.error)
       if (disciplinesReady) check(found)
       const disciplines = disciplinesReady ? ((found.data ?? []) as DisciplineRow[]).map(toDiscipline) : []
 
-      const probe = await client.from('notes').select('id').limit(0)
-      notesReady = !isMissingSchema(probe.error)
+      if (probe) {
+        notesReady = !isMissingSchema(probe.error)
+        notesProbed = notesReady
+      }
 
       const { data: cardRows } = check(await client.from('cards').select(`${cardFields()}, tasks(${TASK_FIELDS})${notesReady ? ', notes(count)' : ''}`).eq('board_id', id).order('posicao', { ascending: true }).order('created_at', { ascending: true }))
       return {
