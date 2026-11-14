@@ -410,6 +410,12 @@ textarea.detail__title { padding: 6px 10px; margin-left: -10px; width: calc(100%
 .pomodoro__controls { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
 .pomodoro__footer { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: var(--sp-3); }
 .pomodoro__today { font-size: var(--fs-sm); color: var(--text-2); }
+.pomodoro__cycle { display: flex; gap: 5px; margin-top: 7px; }
+.pomodoro__cycle i { width: 7px; height: 7px; border: 1px solid var(--border-strong); border-radius: var(--r-full); }
+.pomodoro__cycle i.is-on { border-color: var(--accent); background: var(--accent); }
+.pomodoro__custom { display: flex; flex-wrap: wrap; gap: var(--sp-2) var(--sp-4); }
+.pomodoro__custom label { display: inline-flex; align-items: center; gap: var(--sp-2); font-size: var(--fs-sm); font-weight: 700; color: var(--text-2); }
+.pomodoro__custom .input { width: 76px; text-align: center; font-variant-numeric: tabular-nums; }
 .pomodoro__today strong { color: var(--accent-text); }
 
 .pomo-pill { position: fixed; z-index: 35; left: var(--sp-5); bottom: var(--sp-5); display: flex; align-items: center; gap: 2px; padding: 4px 4px 4px 6px; border: 1px solid var(--accent); border-radius: var(--r-full); background: var(--surface-2); box-shadow: var(--shadow-2); animation: rise var(--slow) var(--ease); }

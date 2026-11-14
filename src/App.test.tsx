@@ -227,6 +227,31 @@ describe('fluxos principais', () => {
     expect(within(row).getByText('10:00')).toBeInTheDocument()
   })
 
+  it('pomodoro: dá para começar pela pausa e escolher a própria duração', async () => {
+    pomodoro.stop()
+    const user = await open()
+    await user.click(views().getByRole('link', { name: /foco/i }))
+    const panel = within(await screen.findByRole('region', { name: 'Pomodoro' }))
+
+    await user.click(panel.getByRole('radio', { name: 'Outro' }))
+    const focusField = panel.getByLabelText('Minutos de foco')
+    await user.clear(focusField)
+    await user.type(focusField, '40')
+    expect(panel.getByText(/40 min de foco, 5 de pausa/)).toBeInTheDocument()
+
+    await user.click(panel.getByRole('button', { name: 'Começar pela pausa' }))
+    expect(panel.getByText('Quando a pausa acabar, o foco de 40 min começa sozinho.')).toBeInTheDocument()
+    expect(panel.getByRole('img', { name: '0 de 4 focos até a pausa longa' })).toBeInTheDocument()
+
+    await user.click(panel.getByRole('button', { name: 'Pular pausa' }))
+    expect(panel.getByText(/Foco total/)).toBeInTheDocument()
+    await user.click(panel.getByRole('button', { name: 'Fazer uma pausa' }))
+    expect(panel.getByText('Respira. Daqui a pouco tem foco.')).toBeInTheDocument()
+    await user.click(panel.getByRole('button', { name: 'Parar' }))
+    expect(panel.getByRole('button', { name: 'Iniciar foco' })).toBeInTheDocument()
+    pomodoro.setSettings({ focus: 25, shortBreak: 5, longBreak: 15, longEvery: 4 })
+  })
+
   it('Telegram: conecta pelo link do bot e ajusta horário e antecedência', async () => {
     const user = await open()
     await user.click(screen.getByRole('button', { name: /conta de/i }))

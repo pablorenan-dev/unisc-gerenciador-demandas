@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from 'react'
-import { advance, formatClock, initialState, isRunning, parseState, pause, resume, secondsLeft, skipBreak, startFocus, stop, type Credit, type PomodoroEvent, type PomodoroLink, type PomodoroSettings, type PomodoroState } from '../lib/pomodoro'
+import { advance, formatClock, initialState, isRunning, parseState, pause, resume, secondsLeft, skipBreak, startFocus, stop, takeBreak, type Credit, type PomodoroEvent, type PomodoroLink, type PomodoroSettings, type PomodoroState } from '../lib/pomodoro'
 import { meow } from '../mascot/voice'
 import { catSay } from './feedback'
 
@@ -68,6 +68,10 @@ function announce(event: PomodoroEvent, quiet: boolean) {
     const text = state.long ? 'Pausa longa! Vai lá, deita no sofá igual eu.' : 'Pausa! Estica as pernas e bebe uma água.'
     if (!quiet) { meow('trill'); catSay(text, 'party', 8000) }
     notify('Foco concluído 🐱', text)
+  } else if (state.phase === 'focus') {
+    // Pausa pedida pela pessoa: o foco já começou sozinho.
+    if (!quiet) { meow('kitten'); catSay(`Acabou a pausa. Foco de ${state.settings.focus} min ligado!`, 'curious', 8000) }
+    notify('Fim da pausa', `O foco de ${state.settings.focus} min já começou.`)
   } else {
     if (!quiet) { meow('kitten'); catSay('Acabou a pausa. Bora mais um?', 'curious', 8000) }
     notify('Fim da pausa', 'Bora mais um pomodoro?')
@@ -133,6 +137,15 @@ export const pomodoro = {
     if (current.phase === 'focus') { const stopped = stop(current, now); addCredit(stopped.credit); current = stopped.state }
     set(startFocus(current, now, link === undefined ? current.link : link))
     catSay(link?.taskTitle ? `Foco em "${link.taskTitle}". Vou tirar um cochilo enquanto isso.` : 'Foco ligado. Vou tirar um cochilo enquanto isso.', 'sleepy', 5000)
+  },
+  /** Descansa primeiro (pausa curta) e depois o foco começa sozinho. Vale parado ou no meio de um foco. */
+  startBreak() {
+    if (state.phase === 'break') return
+    askPermission()
+    const result = takeBreak(state, Date.now())
+    addCredit(result.credit)
+    set(result.state)
+    catSay(`Pausa de ${state.settings.shortBreak} min. Quando acabar eu chamo e o foco começa.`, 'happy', 5000)
   },
   pause() { set(pause(state, Date.now())) },
   resume() { set(resume(state, Date.now())) },

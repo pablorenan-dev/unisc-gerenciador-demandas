@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { advance, initialState, parseState, pause, resume, secondsLeft, skipBreak, startFocus, stop, type PomodoroLink } from './pomodoro'
+import { advance, initialState, parseState, pause, resume, secondsLeft, skipBreak, startFocus, stop, takeBreak, type PomodoroLink } from './pomodoro'
 
 const t0 = new Date(2026, 10, 13, 20, 0, 0).getTime()
 const min = 60_000
@@ -67,6 +67,42 @@ describe('pomodoro', () => {
     expect(skipBreak(inBreak, t0 + 26 * min).phase).toBe('focus')
     const tomorrow = startFocus(inBreak, t0 + 24 * 60 * min, null)
     expect(tomorrow.today.count).toBe(0)
+  })
+
+  it('começar pela pausa: 5 min de descanso e o foco de 25 começa sozinho, sem contar pomodoro', () => {
+    const resting = takeBreak({ ...initialState(t0), link }, t0)
+    expect(resting.credit).toBeNull()
+    expect(resting.state).toMatchObject({ phase: 'break', long: false, thenFocus: true, total: 5 * 60 })
+    expect(advance(resting.state, t0 + 4 * min).event).toBeNull()
+
+    const back = advance(resting.state, t0 + 5 * min)
+    expect(back.event).toBe('break-end')
+    expect(back.state).toMatchObject({ phase: 'focus', thenFocus: false, total: 25 * 60, link })
+    expect(back.state.today.count).toBe(0)
+
+    // Depois desse foco, o ciclo segue normal: pausa comum, que termina em "pronto".
+    const normal = advance(back.state, t0 + 30 * min).state
+    expect(normal).toMatchObject({ phase: 'break', thenFocus: false })
+    expect(advance(normal, t0 + 35 * min).state.phase).toBe('idle')
+  })
+
+  it('fazer uma pausa no meio do foco credita o tempo cumprido e volta para o foco depois', () => {
+    const focus = startFocus(initialState(t0), t0, link)
+    const resting = takeBreak(focus, t0 + 12 * min)
+    expect(resting.credit?.seconds).toBe(12 * 60)
+    expect(resting.state).toMatchObject({ phase: 'break', thenFocus: true })
+    expect(resting.state.today).toMatchObject({ count: 0, seconds: 12 * 60 })
+    expect(advance(resting.state, t0 + 17 * min).state.phase).toBe('focus')
+    // Já em pausa, pedir de novo não reinicia o relógio.
+    expect(takeBreak(resting.state, t0 + 14 * min).state).toBe(resting.state)
+  })
+
+  it('pausa que emendaria no foco só encerra se o app ficou fechado; parar ou pular desfaz o combinado', () => {
+    const resting = takeBreak(initialState(t0), t0).state
+    expect(advance(resting, t0 + 3 * 60 * min).state).toMatchObject({ phase: 'idle', thenFocus: false })
+    expect(stop(resting, t0 + min).state).toMatchObject({ phase: 'idle', thenFocus: false })
+    expect(skipBreak(resting, t0 + min)).toMatchObject({ phase: 'focus', thenFocus: false })
+    expect(parseState({ phase: 'idle', thenFocus: true }, t0).thenFocus).toBe(false)
   })
 
   it('estado salvo malformado ou adulterado volta ao padrão seguro', () => {

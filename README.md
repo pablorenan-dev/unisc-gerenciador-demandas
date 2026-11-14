@@ -16,7 +16,7 @@ npm run dev
 
 Comandos de qualidade: `npm run build`, `npm run lint`, `npm run test`.
 
-Pomodoro: fica na visão Foco (atalho `4`). Continua contando ao trocar de tela ou recarregar a página, e o tempo de foco vinculado a uma tarefa é somado ao timer dela.
+Pomodoro: fica na visão Foco (atalho `4`). Continua contando ao trocar de tela ou recarregar a página, e o tempo de foco vinculado a uma tarefa é somado ao timer dela. Dá para começar pela pausa (ou sair do foco para descansar): quando ela acaba, o foco começa sozinho. Além dos três ritmos prontos, "Outro" aceita minutos à escolha.
 
 ## Banco de dados
 

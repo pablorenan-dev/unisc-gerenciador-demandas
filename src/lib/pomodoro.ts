@@ -1,6 +1,7 @@
 /**
  * Regras do pomodoro, sem efeitos colaterais (o relógio é passado como parâmetro).
  * Fluxo: foco → pausa (curta, ou longa a cada N focos) → pronto para o próximo foco.
+ * Também dá para começar pela pausa (ou sair do foco para descansar): aí, quando ela acaba, o foco começa sozinho.
  */
 
 export type Phase = 'idle' | 'focus' | 'break'
@@ -15,6 +16,8 @@ export type PomodoroState = {
   phase: Phase
   /** Pausa longa? (só vale na fase 'break'). */
   long: boolean
+  /** A pausa atual foi pedida pela pessoa ("descansar e depois focar"): ao terminar, o foco começa sozinho. */
+  thenFocus: boolean
   /** Fim da fase em ms; `null` quando pausado ou parado. */
   endsAt: number | null
   /** Segundos restantes (quando pausado) ou total da fase (ao iniciar). */
@@ -48,7 +51,7 @@ let sequence = 0
 const nextId = (now: number) => `${now.toString(36)}-${(sequence += 1).toString(36)}-${Math.random().toString(36).slice(2, 7)}`
 
 export function initialState(now: number): PomodoroState {
-  return { id: nextId(now), phase: 'idle', long: false, endsAt: null, remaining: 0, total: 0, cycle: 0, link: null, settings: presets[0].settings, today: { date: localDate(now), count: 0, seconds: 0 } }
+  return { id: nextId(now), phase: 'idle', long: false, thenFocus: false, endsAt: null, remaining: 0, total: 0, cycle: 0, link: null, settings: presets[0].settings, today: { date: localDate(now), count: 0, seconds: 0 } }
 }
 
 /** Zera o contador do dia quando vira a data. */
@@ -68,12 +71,12 @@ const creditFor = (state: PomodoroState, seconds: number, now: number): Credit |
 
 export function startFocus(state: PomodoroState, now: number, link: PomodoroLink | null = state.link): PomodoroState {
   const total = state.settings.focus * 60
-  return { ...rollDay(state, now), id: nextId(now), phase: 'focus', long: false, endsAt: now + total * 1000, remaining: total, total, link }
+  return { ...rollDay(state, now), id: nextId(now), phase: 'focus', long: false, thenFocus: false, endsAt: now + total * 1000, remaining: total, total, link }
 }
 
-export function startBreak(state: PomodoroState, now: number, long: boolean): PomodoroState {
+export function startBreak(state: PomodoroState, now: number, long: boolean, thenFocus = false): PomodoroState {
   const total = (long ? state.settings.longBreak : state.settings.shortBreak) * 60
-  return { ...state, id: nextId(now), phase: 'break', long, endsAt: now + total * 1000, remaining: total, total }
+  return { ...state, id: nextId(now), phase: 'break', long, thenFocus, endsAt: now + total * 1000, remaining: total, total }
 }
 
 export function pause(state: PomodoroState, now: number): PomodoroState {
@@ -92,12 +95,26 @@ export function stop(state: PomodoroState, now: number): { state: PomodoroState;
   const credit = creditFor(state, seconds, now)
   const base = rollDay(state, now)
   return {
-    state: { ...base, id: nextId(now), phase: 'idle', long: false, endsAt: null, remaining: 0, total: 0, today: { ...base.today, seconds: base.today.seconds + (credit ? seconds : 0) } },
+    state: { ...base, id: nextId(now), phase: 'idle', long: false, thenFocus: false, endsAt: null, remaining: 0, total: 0, today: { ...base.today, seconds: base.today.seconds + (credit ? seconds : 0) } },
     credit,
   }
 }
 
-/** Avança quando o tempo acabou: foco → pausa; pausa → pronto para o próximo foco. */
+/**
+ * "Vou descansar um pouco e depois volto": pausa curta que emenda no foco quando acaba.
+ * Parado, é começar pela pausa. No meio de um foco, encerra o foco como o `stop`
+ * (credita o tempo cumprido, não conta pomodoro) e vai para a pausa.
+ */
+export function takeBreak(state: PomodoroState, now: number): { state: PomodoroState; credit: Credit | null } {
+  if (state.phase === 'break') return { state, credit: null }
+  const stopped = state.phase === 'focus' ? stop(state, now) : { state: rollDay(state, now), credit: null }
+  return { state: startBreak(stopped.state, now, false, true), credit: stopped.credit }
+}
+
+/** Depois deste atraso, a pausa que emendaria no foco só encerra: ninguém estava olhando o relógio. */
+const CHAIN_LIMIT_MS = 60_000
+
+/** Avança quando o tempo acabou: foco → pausa; pausa → pronto para o próximo foco (ou direto para ele, se foi combinado). */
 export function advance(state: PomodoroState, now: number): { state: PomodoroState; event: PomodoroEvent | null; credit: Credit | null } {
   if (!isRunning(state) || secondsLeft(state, now) > 0) return { state, event: null, credit: null }
   if (state.phase === 'focus') {
@@ -108,7 +125,9 @@ export function advance(state: PomodoroState, now: number): { state: PomodoroSta
     const counted = { ...base, cycle: long ? 0 : cycle, today: { ...base.today, count: base.today.count + 1, seconds: base.today.seconds + state.total } }
     return { state: startBreak(counted, now, long), event: 'focus-end', credit }
   }
-  return { state: { ...state, id: nextId(now), phase: 'idle', long: false, endsAt: null, remaining: 0, total: 0 }, event: 'break-end', credit: null }
+  // O app pode ter ficado fechado durante a pausa: não começa um foco sozinho horas depois.
+  if (state.thenFocus && now - (state.endsAt ?? now) <= CHAIN_LIMIT_MS) return { state: startFocus(state, now), event: 'break-end', credit: null }
+  return { state: { ...state, id: nextId(now), phase: 'idle', long: false, thenFocus: false, endsAt: null, remaining: 0, total: 0 }, event: 'break-end', credit: null }
 }
 
 /** Pula a pausa e já começa o próximo foco. */
@@ -134,6 +153,7 @@ export function parseState(raw: unknown, now: number): PomodoroState {
     id: typeof value.id === 'string' ? value.id : base.id,
     phase,
     long: Boolean(value.long),
+    thenFocus: phase === 'break' && value.thenFocus === true,
     endsAt: phase === 'idle' || value.endsAt === null || value.endsAt === undefined ? null : number(value.endsAt, now),
     remaining: number(value.remaining, 0),
     total: number(value.total, 0),
