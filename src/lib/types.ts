@@ -34,7 +34,8 @@ export type Card = {
 }
 
 export type Note = { id: string; cardId: string; authorId: string; content: StoredBlock[]; createdAt: string; updatedAt: string }
-export type Profile = { avatarPath: string | null }
+/** `volume`: 0 a 100; `null` quando o banco ainda não guarda o volume (migration 0015 não aplicada). */
+export type Profile = { avatarPath: string | null; volume: number | null }
 export type Bucket = 'avatars' | 'card-images'
 
 export type TelegramSettings = { enabled: boolean; remindHour: number; daysAhead: number; timezone: string }

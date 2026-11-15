@@ -1,13 +1,14 @@
 import { useSyncExternalStore } from 'react'
 
 export type Theme = 'system' | 'light' | 'dark'
-export type Prefs = { theme: Theme; sound: boolean; chatter: boolean }
+/** `volume` (0 a 100) também fica no perfil do banco; aqui é a cópia local, para valer na hora. */
+export type Prefs = { theme: Theme; sound: boolean; chatter: boolean; volume: number }
 
 const KEY = 'ugd-prefs'
 const listeners = new Set<() => void>()
 
 function read(): Prefs {
-  const fallback: Prefs = { theme: 'system', sound: true, chatter: true }
+  const fallback: Prefs = { theme: 'system', sound: true, chatter: true, volume: 100 }
   try {
     const stored = window.localStorage.getItem(KEY)
     if (stored) return { ...fallback, ...(JSON.parse(stored) as Partial<Prefs>) }

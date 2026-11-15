@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useMemo, useState, type ReactNode
 import { createDemoApi, createSupabaseApi, type Api } from '../lib/api'
 import { demoMode, supabase } from '../lib/supabase'
 import type { Profile } from '../lib/types'
+import { getPrefs, setPrefs } from './prefs'
 
 export type AuthUser = { id: string; email: string; name: string }
 
@@ -68,7 +69,12 @@ export function AuthProvider({ children, api: injectedApi }: { children: ReactNo
   useEffect(() => {
     if (!api) return
     let active = true
-    api.getProfile().then((value) => { if (active) setProfile({ api, value }) }, () => { if (active) setProfile({ api, value: null }) })
+    api.getProfile().then((value) => {
+      if (!active) return
+      setProfile({ api, value })
+      // O volume do Chiquinho vem da conta: vale o do banco, não o que sobrou neste navegador.
+      if (typeof value?.volume === 'number' && value.volume !== getPrefs().volume) setPrefs({ volume: value.volume })
+    }, () => { if (active) setProfile({ api, value: null }) })
     return () => { active = false }
   }, [api])
   // Perfil de outra sessão (ex.: trocou de conta) não vale: volta a "carregando".
@@ -79,7 +85,7 @@ export function AuthProvider({ children, api: injectedApi }: { children: ReactNo
     user,
     api,
     profile: currentProfile,
-    setAvatarPath: (path) => setProfile((current) => (current ? { ...current, value: { ...current.value, avatarPath: path } } : current)),
+    setAvatarPath: (path) => setProfile((current) => (current ? { ...current, value: { volume: null, ...current.value, avatarPath: path } } : current)),
     recovering,
     finishRecovery: () => setRecovering(false),
     async signOut() {

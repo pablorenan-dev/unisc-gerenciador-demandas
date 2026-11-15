@@ -1,3 +1,4 @@
+import { Settings } from 'lucide-react'
 import type { Discipline } from '../../lib/types'
 import { DisciplineIcon } from './DisciplineIcon'
 
@@ -9,12 +10,14 @@ type Props = {
   onChange: (id: string | null) => void
   /** Abre o cadastro para criar uma disciplina nova. */
   onCreate: () => void
+  /** Abre o cadastro completo (editar nome, ícone e cor, excluir). */
+  onManage: () => void
 }
 
 const NEW = '__nova__'
 
 /** Escolha da disciplina do card, com atalho para cadastrar uma nova sem sair do formulário. */
-export function DisciplineSelect({ disciplines, value, legacyName, onChange, onCreate }: Props) {
+export function DisciplineSelect({ disciplines, value, legacyName, onChange, onCreate, onManage }: Props) {
   const selected = disciplines.find((item) => item.id === value)
   return (
     <span className="disc-select">
@@ -24,6 +27,7 @@ export function DisciplineSelect({ disciplines, value, legacyName, onChange, onC
         {disciplines.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
         <option value={NEW}>+ Nova disciplina…</option>
       </select>
+      <button type="button" className="icon-btn" aria-label="Configurar disciplinas" title="Configurar disciplinas" onClick={(event) => { event.preventDefault(); onManage() }}><Settings size={17} aria-hidden /></button>
     </span>
   )
 }

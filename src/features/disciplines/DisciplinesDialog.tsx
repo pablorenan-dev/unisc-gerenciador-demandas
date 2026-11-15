@@ -15,13 +15,16 @@ type Props = {
   startNew?: boolean
   /** Chamado ao criar (usado para já selecionar a disciplina no card em edição). */
   onCreated?: (discipline: Discipline) => void
+  /** Abre ao lado de outro diálogo (as Configurações), em vez de por cima. */
+  beside?: boolean
   onClose: () => void
 }
 
 type Draft = { id: string | null; name: string; icon: IconKey; color: string; iconChosen: boolean }
 
 /** Cadastro das disciplinas do quadro: nome, ícone e cor. */
-export function DisciplinesDialog({ store, boardName, startNew, onCreated, onClose }: Props) {
+export function DisciplinesDialog({ store, boardName, startNew, onCreated, beside, onClose }: Props) {
+  const dock = beside ? 'right' : undefined
   const { disciplines, cards } = store
   const formId = useId()
   const blank = (): Draft => ({ id: null, name: '', icon: 'book', color: nextColor(disciplines.map((item) => item.color)), iconChosen: false })
@@ -50,7 +53,7 @@ export function DisciplinesDialog({ store, boardName, startNew, onCreated, onClo
 
   if (!store.disciplinesReady) {
     return (
-      <Dialog title="Disciplinas" eyebrow={boardName} onClose={onClose} footer={<button type="button" className="btn btn--primary" onClick={onClose}>Entendi</button>}>
+      <Dialog title="Disciplinas" eyebrow={boardName} dock={dock} onClose={onClose} footer={<button type="button" className="btn btn--primary" onClick={onClose}>Entendi</button>}>
         <div className="panel__empty"><Chiquinho mood="worried" size={64} /><p>O cadastro de disciplinas ainda não foi ativado no servidor. Aplique a migration <strong>0011_disciplines.sql</strong> no Supabase e recarregue a página.</p></div>
       </Dialog>
     )
@@ -58,7 +61,7 @@ export function DisciplinesDialog({ store, boardName, startNew, onCreated, onClo
 
   return (
     <>
-      <Dialog title="Disciplinas" eyebrow={boardName} onClose={onClose}
+      <Dialog title="Disciplinas" eyebrow={boardName} dock={dock} onClose={onClose}
         footer={draft ? <>
           {(draft.id || disciplines.length > 0) && !startNew && <button type="button" className="btn" onClick={() => setDraft(null)}>Voltar</button>}
           <button type="submit" form={formId} className="btn btn--primary" disabled={!draft.name.trim() || busy}>{busy ? 'Salvando…' : draft.id ? 'Salvar' : 'Criar disciplina'}</button>

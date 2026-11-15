@@ -73,6 +73,25 @@ textarea.input { resize: vertical; line-height: 1.45; }
 .switch--row strong { font-size: var(--fs-md); color: var(--text); }
 .switch--row small { font-size: var(--fs-sm); font-weight: 500; color: var(--text-3); }
 
+.volume { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-4); padding: var(--sp-3) 0; }
+.volume > span:first-child { display: flex; flex-direction: column; gap: 2px; }
+.volume strong { font-size: var(--fs-md); color: var(--text); }
+.volume small { font-size: var(--fs-sm); font-weight: 500; color: var(--text-3); }
+.volume__control { display: flex; align-items: center; gap: var(--sp-2); flex: none; color: var(--text-2); }
+.volume__control output { min-width: 4ch; text-align: right; font-size: var(--fs-sm); font-weight: 700; font-variant-numeric: tabular-nums; }
+.volume input[type='range'] { width: 140px; height: 22px; margin: 0; appearance: none; background: transparent; cursor: pointer; }
+.volume input[type='range']::-webkit-slider-runnable-track { height: 6px; border-radius: var(--r-full); background: linear-gradient(to right, var(--accent) var(--fill, 100%), var(--border-strong) var(--fill, 100%)); }
+.volume input[type='range']::-moz-range-track { height: 6px; border-radius: var(--r-full); background: var(--border-strong); }
+.volume input[type='range']::-moz-range-progress { height: 6px; border-radius: var(--r-full); background: var(--accent); }
+.volume input[type='range']::-webkit-slider-thumb { appearance: none; width: 18px; height: 18px; margin-top: -6px; border: 2px solid var(--accent); border-radius: 50%; background: var(--surface); }
+.volume input[type='range']::-moz-range-thumb { width: 14px; height: 14px; border: 2px solid var(--accent); border-radius: 50%; background: var(--surface); }
+.volume.is-disabled { opacity: 0.55; }
+.volume.is-disabled input[type='range'] { cursor: not-allowed; }
+@media (max-width: 480px) {
+  .volume { flex-direction: column; align-items: stretch; gap: var(--sp-2); }
+  .volume input[type='range'] { flex: 1; width: auto; }
+}
+
 .segmented { display: inline-flex; padding: 3px; border: 1px solid var(--border); border-radius: var(--r-md); background: var(--bg-sunken); }
 .segmented button { min-height: 32px; padding: 0 var(--sp-3); border: 0; border-radius: 9px; background: transparent; color: var(--text-2); font-size: var(--fs-sm); font-weight: 700; }
 .segmented button.is-active { background: var(--surface); color: var(--text); box-shadow: var(--shadow-1); }
@@ -120,6 +139,15 @@ textarea.input { resize: vertical; line-height: 1.45; }
 .dialog-backdrop { position: fixed; inset: 0; z-index: 70; display: grid; place-items: center; padding: var(--sp-4); background: var(--overlay); backdrop-filter: blur(3px); animation: fade var(--fast) linear; }
 .dialog { display: flex; flex-direction: column; width: 100%; max-height: calc(100dvh - 32px); border: 1px solid var(--border-strong); border-radius: var(--r-xl); background: var(--surface); box-shadow: var(--shadow-3); animation: rise var(--slow) var(--ease); }
 .dialog:focus { outline: none; }
+/* Par lado a lado: os dois têm a mesma largura e se afastam do centro meia largura cada (16px entre eles). */
+.dialog { transition: transform var(--slow) var(--ease), max-width var(--slow) var(--ease); }
+@media (min-width: 1000px) {
+  .dialog-backdrop--left .dialog, .dialog-backdrop--right .dialog { max-width: min(560px, calc(50vw - 28px)); }
+  .dialog-backdrop--left .dialog { transform: translateX(calc(-50% - 8px)); }
+  .dialog-backdrop--right .dialog { transform: translateX(calc(50% + 8px)); pointer-events: auto; }
+  /* O fundo escuro é o do primeiro diálogo: o segundo não cobre nem bloqueia o vizinho. */
+  .dialog-backdrop--right { background: transparent; backdrop-filter: none; pointer-events: none; animation: none; }
+}
 .dialog--sm { max-width: 420px; }
 .dialog--md { max-width: 560px; }
 .dialog--lg { max-width: 920px; }

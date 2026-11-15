@@ -14,6 +14,8 @@ type Props = {
   base: string
   userName: string
   userEmail: string
+  /** Timer de tarefa em andamento, quando o card dele está fechado. */
+  timer?: React.ReactNode
   onNewCard: () => void
   onSwitch: (id: string) => void
   onCreateBoard: () => void
@@ -28,7 +30,7 @@ type Props = {
  * Barra superior. Esquerda: marca + quadro atual (o contexto de tudo).
  * Centro: as três visões do quadro. Direita: ação principal + menu da conta.
  */
-export function Topbar({ board, boards, base, userName, userEmail, onNewCard, onSwitch, onCreateBoard, onRenameBoard, onDeleteBoard, onDisciplines, onSettings, onShortcuts }: Props) {
+export function Topbar({ board, boards, base, userName, userEmail, timer, onNewCard, onSwitch, onCreateBoard, onRenameBoard, onDeleteBoard, onDisciplines, onSettings, onShortcuts }: Props) {
   const prefs = usePrefs()
   const { signOut, profile } = useAuth()
 
@@ -60,6 +62,7 @@ export function Topbar({ board, boards, base, userName, userEmail, onNewCard, on
       </nav>
 
       <div className="topbar__end">
+        {timer}
         <button type="button" className="btn btn--primary topbar__new" onClick={onNewCard}><Plus size={18} aria-hidden /> Nova demanda</button>
         <Menu label={`Conta de ${userName}`} triggerClassName="avatar-btn" trigger={<Avatar name={userName} path={profile?.avatarPath} />}>
           {(close) => <>

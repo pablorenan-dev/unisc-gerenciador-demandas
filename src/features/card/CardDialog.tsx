@@ -23,6 +23,7 @@ type Props = {
   /** Falso enquanto o banco não tem o cadastro de disciplinas: o campo volta a ser texto livre. */
   disciplinesReady: boolean
   onNewDiscipline: (onCreated: (discipline: Discipline) => void) => void
+  onManageDisciplines: () => void
   onClose: () => void
   onSave: (card: Card) => Promise<boolean>
   onDelete: () => void
@@ -35,7 +36,7 @@ const fieldsOf = (card: Card) => JSON.stringify([card.title, card.description, c
  * Detalhe da demanda. Os campos são salvos pelo botão "Salvar";
  * a lista de tarefas (marcar, adicionar, remover, timer) é salva na hora, como um checklist.
  */
-export function CardDialog({ card, columns, boardId, boardName, notesReady, onNotesCount, disciplines, disciplinesReady, onNewDiscipline, onClose, onSave, onDelete, onDuplicate }: Props) {
+export function CardDialog({ card, columns, boardId, boardName, notesReady, onNotesCount, disciplines, disciplinesReady, onNewDiscipline, onManageDisciplines, onClose, onSave, onDelete, onDuplicate }: Props) {
   const [draft, setDraft] = useState(card)
   const [newTask, setNewTask] = useState('')
   const [now, setNow] = useState(() => Date.now())
@@ -153,7 +154,7 @@ export function CardDialog({ card, columns, boardId, boardName, notesReady, onNo
               {disciplinesReady ? (
                 <DisciplineSelect disciplines={disciplines} value={draft.disciplineId} legacyName={draft.discipline}
                   onChange={(id) => set({ disciplineId: id, discipline: disciplines.find((item) => item.id === id)?.name ?? '' })}
-                  onCreate={() => onNewDiscipline((created) => set({ disciplineId: created.id, discipline: created.name }))} />
+                  onCreate={() => onNewDiscipline((created) => set({ disciplineId: created.id, discipline: created.name }))} onManage={onManageDisciplines} />
               ) : (
                 <input className="input" maxLength={120} value={draft.discipline} placeholder="Ex.: Banco de Dados" onChange={(event) => set({ discipline: event.target.value })} />
               )}

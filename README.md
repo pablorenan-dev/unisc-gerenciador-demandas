@@ -20,7 +20,7 @@ Pomodoro: fica na visão Foco (atalho `4`). Continua contando ao trocar de tela 
 
 ## Banco de dados
 
-Execute as migrations de `supabase/migrations/` em ordem, no SQL Editor do Supabase (`0001` a `0014`). Todas são aditivas.
+Execute as migrations de `supabase/migrations/` em ordem, no SQL Editor do Supabase (`0001` a `0015`). Todas são aditivas.
 
 A `0009_integrity_and_account_deletion.sql` adiciona:
 - trigger que impede um card de apontar para a coluna de outro quadro;

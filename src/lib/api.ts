@@ -43,6 +43,8 @@ export interface Api {
   /** Envia a nova foto, troca no perfil e apaga a anterior. Devolve o caminho no bucket. */
   setAvatar(image: UploadedImage): Promise<string>
   removeAvatar(): Promise<void>
+  /** Volume do Chiquinho (0 a 100), guardado no perfil. */
+  setVolume(volume: number): Promise<void>
   /** Links temporários para arquivos dos buckets privados. */
   signedUrls(bucket: Bucket, paths: string[]): Promise<Record<string, string>>
   uploadCardImage(boardId: string, cardId: string, image: UploadedImage): Promise<string>
@@ -92,7 +94,13 @@ const isMissingSchema = (error: { code?: string } | null) => Boolean(error && ['
 /** Tabela sem permissão para o usuário logado (ex.: profiles antes da 0012). */
 const isUnavailable = (error: { code?: string } | null) => isMissingSchema(error) || error?.code === '42501'
 
-const CARD_FIELDS = 'id, column_id, posicao, titulo, descricao, disciplina, tipo, prioridade, data_inicio, data_entrega, labels, created_at'
+/** Volume sempre inteiro entre 0 e 100, venha de onde vier (banco ou tela). */
+export function clampVolume(value: unknown): number {
+  const number = Math.round(Number(value))
+  return Number.isFinite(number) ? Math.min(100, Math.max(0, number)) : 100
+}
+
+const CARD_FIELDS ='id, column_id, posicao, titulo, descricao, disciplina, tipo, prioridade, data_inicio, data_entrega, labels, created_at'
 const TASK_FIELDS = 'id, titulo, concluida, tempo_segundos, timer_iniciado_em, posicao, created_at'
 
 function toTask(row: TaskRow): Task {
@@ -160,6 +168,8 @@ export function createSupabaseApi(client: SupabaseClient, userId: string): Api {
   let disciplinesReady = true
   let notesReady = true
   let notesProbed = false
+  // Vira falso se o banco ainda não tiver a coluna do volume (migration 0015 não aplicada).
+  let volumeReady = true
   const cardFields = () => (disciplinesReady ? `${CARD_FIELDS}, discipline_id` : CARD_FIELDS)
   const storage = (bucket: Bucket) => client.storage.from(bucket)
 
@@ -320,11 +330,25 @@ export function createSupabaseApi(client: SupabaseClient, userId: string): Api {
     },
 
     async getProfile() {
-      const { data, error } = await client.from('profiles').select('avatar_url').eq('id', userId).maybeSingle()
-      if (isUnavailable(error)) return null
+      let result = await client.from('profiles').select(volumeReady ? 'avatar_url, chiquinho_volume' : 'avatar_url').eq('id', userId).maybeSingle()
+      if (volumeReady && result.error?.code === '42703') {
+        // Banco sem a coluna do volume (migration 0015): o resto do perfil continua valendo.
+        volumeReady = false
+        result = await client.from('profiles').select('avatar_url').eq('id', userId).maybeSingle()
+      }
+      if (isUnavailable(result.error)) return null
+      if (result.error) throw result.error
+      const row = result.data as unknown as { avatar_url: string | null; chiquinho_volume?: number | null } | null
+      const path = row?.avatar_url ?? null
+      const volume = volumeReady ? clampVolume(row?.chiquinho_volume ?? 100) : null
+      return { avatarPath: path && AVATAR_PATH.test(path) ? path : null, volume }
+    },
+
+    async setVolume(volume) {
+      if (!volumeReady) return
+      const { error } = await client.from('profiles').upsert({ id: userId, chiquinho_volume: clampVolume(volume) }, { onConflict: 'id' })
+      if (isUnavailable(error)) { volumeReady = false; return }
       if (error) throw error
-      const path = (data as { avatar_url: string | null } | null)?.avatar_url ?? null
-      return { avatarPath: path && AVATAR_PATH.test(path) ? path : null }
     },
 
     async setAvatar(image) {
@@ -464,6 +488,7 @@ export function createDemoApi(options: { empty?: boolean } = {}): Api {
   // Arquivos "enviados" ficam só na memória do navegador.
   const files = new Map<string, string>()
   let avatarPath: string | null = null
+  let volume = 100
   let telegram: TelegramStatus = { configured: true, linked: false, username: null, firstName: null, enabled: true, remindHour: 19, daysAhead: 2, timezone: 'America/Sao_Paulo' }
   const notes: Note[] = []
   if (!options.empty) {
@@ -506,7 +531,8 @@ export function createDemoApi(options: { empty?: boolean } = {}): Api {
     async createDiscipline(boardId, input) { const discipline = { ...input, id: demoId('disc') }; find(boardId).disciplines.push(discipline); return { ...discipline } },
     async updateDiscipline(id, patch) { for (const board of boards) { const discipline = board.disciplines.find((item) => item.id === id); if (discipline) Object.assign(discipline, patch) } },
     async deleteDiscipline(id) { for (const board of boards) { board.disciplines = board.disciplines.filter((item) => item.id !== id); board.cards.forEach((card) => { if (card.disciplineId === id) { card.disciplineId = null; card.discipline = '' } }) } },
-    async getProfile() { return { avatarPath } },
+    async getProfile() { return { avatarPath, volume } },
+    async setVolume(value) { volume = clampVolume(value) },
     async setAvatar(image) { avatarPath = store(`${demoUuid()}/${demoUuid()}.${image.extension}`, image.blob); return avatarPath },
     async removeAvatar() { avatarPath = null },
     async signedUrls(_bucket, paths) { return Object.fromEntries(paths.filter((path) => files.get(path)).map((path) => [path, files.get(path) as string])) },

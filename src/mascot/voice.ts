@@ -38,10 +38,18 @@ function getCatMaster(context: AudioContext) {
     compressor.attack.value = 0.005
     compressor.release.value = 0.15
     catMaster = context.createGain()
-    catMaster.gain.value = 0.4
     catMaster.connect(compressor).connect(context.destination)
   }
+  catMaster.gain.value = MASTER_GAIN * volumeGain(getPrefs().volume)
   return catMaster
+}
+
+const MASTER_GAIN = 0.4
+
+/** Curva quadrática: o ouvido percebe volume de forma não linear, então 50% soa como "metade". */
+function volumeGain(volume: number) {
+  const level = Math.min(100, Math.max(0, Number.isFinite(volume) ? volume : 100)) / 100
+  return level * level
 }
 
 function getCatNoise(context: AudioContext) {
@@ -230,7 +238,8 @@ const catVocalizations = [
 
 /** Toca um miado aleatório, respeitando a preferência "Som do Chiquinho". */
 export function meow(kind?: 'trill' | 'kitten' | 'adult' | 'chatter') {
-  if (!getPrefs().sound) return
+  const prefs = getPrefs()
+  if (!prefs.sound || prefs.volume <= 0) return
   try {
     if (kind === 'trill') playTrill()
     else if (kind === 'kitten') playKittenMeow()

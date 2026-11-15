@@ -11,12 +11,13 @@ type Props = {
   disciplines: Discipline[]
   disciplinesReady: boolean
   onNewDiscipline: (onCreated: (discipline: Discipline) => void) => void
+  onManageDisciplines: () => void
   preset: { column?: string; due?: string }
   onClose: () => void
   onCreate: (input: NewCard) => Promise<Card | null>
 }
 
-export function NewCardDialog({ columns, disciplines, disciplinesReady, onNewDiscipline, preset, onClose, onCreate }: Props) {
+export function NewCardDialog({ columns, disciplines, disciplinesReady, onNewDiscipline, onManageDisciplines, preset, onClose, onCreate }: Props) {
   const formId = useId()
   const [title, setTitle] = useState('')
   const [discipline, setDiscipline] = useState('')
@@ -49,7 +50,7 @@ export function NewCardDialog({ columns, disciplines, disciplinesReady, onNewDis
         <div className="form__row">
           <label className="field"><span>Disciplina <em>(opcional)</em></span>
             {disciplinesReady ? (
-              <DisciplineSelect disciplines={disciplines} value={disciplineId} onChange={setDisciplineId} onCreate={() => onNewDiscipline((created) => setDisciplineId(created.id))} />
+              <DisciplineSelect disciplines={disciplines} value={disciplineId} onChange={setDisciplineId} onCreate={() => onNewDiscipline((created) => setDisciplineId(created.id))} onManage={onManageDisciplines} />
             ) : (
               <input className="input" maxLength={120} placeholder="Ex.: Estruturas de Dados" value={discipline} onChange={(event) => setDiscipline(event.target.value)} />
             )}

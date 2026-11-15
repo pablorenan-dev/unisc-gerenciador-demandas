@@ -136,7 +136,6 @@ export const idlePhrases = [
   'Você é importante, mesmo nos dias difíceis.',
   'Continue: você está mais perto do que pensa.',
   'Hoje é um bom dia para recomeçar.',
-  ']',
   'Eu confio em você. E em sachê.',
   'Miau. (tradução: bora!)',
   'Já bebeu água hoje?',

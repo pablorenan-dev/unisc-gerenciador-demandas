@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { GraduationCap, Volume2, VolumeX } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
 import { friendlyError, supabase } from '../../lib/supabase'
 import { Chiquinho } from '../../mascot/Chiquinho'
 import { meow } from '../../mascot/voice'
@@ -16,13 +17,31 @@ const themes: { value: Theme; label: string }[] = [
 ]
 
 /** Configurações: tudo que é "sobre mim e sobre o app", não sobre um quadro específico. */
-export function SettingsDialog({ onClose }: { onClose: () => void }) {
+export function SettingsDialog({ boardName, disciplinesCount, disciplinesOpen, onDisciplines, onClose }: { boardName: string; disciplinesCount: number; /** O cadastro de disciplinas está aberto ao lado. */ disciplinesOpen: boolean; onDisciplines: () => void; onClose: () => void }) {
   const prefs = usePrefs()
   const { user, api, signOut } = useAuth()
   const [password, setPassword] = useState('')
   const [busy, setBusy] = useState(false)
   const [confirmText, setConfirmText] = useState('')
   const [deleting, setDeleting] = useState(false)
+
+  // O volume vale na hora (preferência local) e vai para o banco quando o controle para de mexer.
+  const pendingVolume = useRef<{ timer: number; save: () => void } | null>(null)
+  function changeVolume(volume: number) {
+    setPrefs({ volume })
+    if (pendingVolume.current) window.clearTimeout(pendingVolume.current.timer)
+    const save = () => {
+      pendingVolume.current = null
+      api?.setVolume(volume).catch(() => toast.error('Não foi possível salvar o volume na sua conta.'))
+    }
+    pendingVolume.current = { save, timer: window.setTimeout(() => { save(); meow('kitten') }, 350) }
+  }
+  // Fechou as configurações antes de salvar: grava mesmo assim.
+  useEffect(() => () => {
+    if (!pendingVolume.current) return
+    window.clearTimeout(pendingVolume.current.timer)
+    pendingVolume.current.save()
+  }, [])
 
   async function changePassword(event: React.FormEvent) {
     event.preventDefault()
@@ -48,7 +67,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
   }
 
   return (
-    <Dialog title="Configurações" eyebrow="Preferências" onClose={onClose} footer={<button type="button" className="btn btn--primary" onClick={onClose}>Concluído</button>}>
+    <Dialog title="Configurações" eyebrow="Preferências" dock={disciplinesOpen ? 'left' : undefined} onClose={onClose} footer={<button type="button" className="btn btn--primary" onClick={onClose}>Concluído</button>}>
       <div className="settings">
         <section className="settings__section">
           <h3>Aparência</h3>
@@ -65,10 +84,26 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
             <span><strong>Som</strong><small>Ele mia quando recebe carinho.</small></span>
             <input type="checkbox" checked={prefs.sound} onChange={(event) => { setPrefs({ sound: event.target.checked }); if (event.target.checked) meow('kitten') }} />
           </label>
+          <label className={`volume${prefs.sound ? '' : ' is-disabled'}`}>
+            <span><strong>Volume</strong><small>{prefs.sound ? 'Vale para a sua conta, em qualquer computador.' : 'Ligue o som para ajustar.'}</small></span>
+            <span className="volume__control">
+              {prefs.sound && prefs.volume > 0 ? <Volume2 size={16} aria-hidden="true" /> : <VolumeX size={16} aria-hidden="true" />}
+              <input type="range" min={0} max={100} step={5} value={prefs.volume} disabled={!prefs.sound} aria-valuetext={`${prefs.volume}%`} style={{ '--fill': `${prefs.volume}%` } as React.CSSProperties} onChange={(event) => changeVolume(Number(event.target.value))} />
+              <output>{prefs.volume}%</output>
+            </span>
+          </label>
           <label className="switch switch--row">
             <span><strong>Frases de incentivo</strong><small>De vez em quando ele comenta alguma coisa no cantinho da tela.</small></span>
             <input type="checkbox" checked={prefs.chatter} onChange={(event) => setPrefs({ chatter: event.target.checked })} />
           </label>
+        </section>
+
+        <section className="settings__section">
+          <h3>Disciplinas</h3>
+          <div className="settings__row">
+            <span><strong>Disciplinas do quadro {boardName}</strong><small>{disciplinesCount === 0 ? 'Nenhuma cadastrada ainda.' : `${disciplinesCount} ${disciplinesCount === 1 ? 'cadastrada' : 'cadastradas'}.`} Nome, ícone e cor de cada matéria.</small></span>
+            <button type="button" className="btn" aria-expanded={disciplinesOpen} onClick={onDisciplines}><GraduationCap size={16} aria-hidden /> {disciplinesOpen ? 'Fechar' : disciplinesCount === 0 ? 'Cadastrar' : 'Gerenciar'}</button>
+          </div>
         </section>
 
         <section className="settings__section">

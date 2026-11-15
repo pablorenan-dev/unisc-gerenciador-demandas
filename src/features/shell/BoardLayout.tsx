@@ -17,6 +17,7 @@ import { SettingsDialog, ShortcutsDialog } from '../settings/SettingsDialog'
 import { PomodoroPill } from '../focus/Pomodoro'
 import { FilterBar } from './FilterBar'
 import { StatePanel } from './StatePanel'
+import { TaskTimerPill } from './TaskTimer'
 import { Topbar } from './Topbar'
 
 export type BoardContext = {
@@ -32,10 +33,9 @@ export type BoardContext = {
   openNew: (preset?: { column?: string; due?: string }) => void
   /** Disciplinas do quadro por id, para mostrar ícone e cor nos cards. */
   disciplineById: Map<string, Discipline>
-  openDisciplines: () => void
 }
 
-type DisciplinesRequest = { startNew?: boolean; onCreated?: (discipline: Discipline) => void }
+type DisciplinesRequest = { startNew?: boolean; onCreated?: (discipline: Discipline) => void; /** Aberto pelas Configurações: fica ao lado delas. */ beside?: boolean }
 
 type BoardDialog = 'create' | 'rename' | 'delete' | 'settings' | 'shortcuts' | null
 
@@ -68,6 +68,7 @@ function BoardScreen() {
   const visibleCards = useMemo(() => store.cards.filter((card) => matchesFilters(card, filters, store.columns)), [store.cards, store.columns, filters])
   const disciplineById = useMemo(() => new Map(store.disciplines.map((discipline) => [discipline.id, discipline])), [store.disciplines])
   const newDiscipline = (onCreated: (discipline: Discipline) => void) => setDisciplinesDialog({ startNew: true, onCreated })
+  const manageDisciplines = () => setDisciplinesDialog({})
   const selected = selectedId ? store.cards.find((card) => card.id === selectedId) : undefined
   const summary = useMemo(() => summarize(store.cards, store.columns), [store.cards, store.columns])
   const brief = useMemo(() => briefing(summary), [summary])
@@ -149,12 +150,13 @@ function BoardScreen() {
     )
   }
 
-  const context: BoardContext = { board, store, filters, setFilters, clearFilters, visibleCards, openCard: setSelectedId, openCardId: selected?.id ?? null, openNew: (preset) => setNewCard(preset ?? {}), disciplineById, openDisciplines: () => setDisciplinesDialog({}) }
+  const context: BoardContext = { board, store, filters, setFilters, clearFilters, visibleCards, openCard: setSelectedId, openCardId: selected?.id ?? null, openNew: (preset) => setNewCard(preset ?? {}), disciplineById }
 
   return (
     <div className={`app app--${view}`}>
       <a className="skip-link" href="#conteudo">Pular para o conteúdo</a>
       <Topbar board={board} boards={boards.boards} base={base} userName={user?.name ?? ''} userEmail={user?.email ?? ''}
+        timer={store.status === 'ready' && <TaskTimerPill cards={store.cards} openCardId={selected?.id ?? null} onSave={store.saveCard} onOpen={setSelectedId} />}
         onNewCard={() => setNewCard({})} onSwitch={(id) => navigate(`/q/${id}${view === 'visao-geral' ? '' : `/${view}`}`)}
         onCreateBoard={() => setDialog('create')} onRenameBoard={() => setDialog('rename')} onDeleteBoard={() => setDialog('delete')} onDisciplines={() => setDisciplinesDialog({})}
         onSettings={() => setDialog('settings')} onShortcuts={() => setDialog('shortcuts')} />
@@ -180,11 +182,11 @@ function BoardScreen() {
       <PomodoroPill focusPath={`${base}/foco`} hidden={view === 'foco'} />
       <Companion fallbackMood={store.status === 'ready' ? (brief.mood === 'curious' ? 'idle' : brief.mood) : 'thinking'} />
 
-      {selected && <CardDialog key={selected.id} card={selected} columns={store.columns} boardId={board.id} boardName={board.name} notesReady={store.notesReady} onNotesCount={(count) => store.setNotesCount(selected.id, count)} disciplines={store.disciplines} disciplinesReady={store.disciplinesReady} onNewDiscipline={newDiscipline}
+      {selected && <CardDialog key={selected.id} card={selected} columns={store.columns} boardId={board.id} boardName={board.name} notesReady={store.notesReady} onNotesCount={(count) => store.setNotesCount(selected.id, count)} disciplines={store.disciplines} disciplinesReady={store.disciplinesReady} onNewDiscipline={newDiscipline} onManageDisciplines={manageDisciplines}
         onClose={() => setSelectedId(null)} onSave={store.saveCard}
         onDelete={() => { setSelectedId(null); store.deleteCard(selected.id) }}
         onDuplicate={async () => { const copy = await store.duplicateCard(selected.id); if (copy) setSelectedId(copy.id) }} />}
-      {newCard && <NewCardDialog columns={store.columns} preset={newCard} disciplines={store.disciplines} disciplinesReady={store.disciplinesReady} onNewDiscipline={newDiscipline}
+      {newCard && <NewCardDialog columns={store.columns} preset={newCard} disciplines={store.disciplines} disciplinesReady={store.disciplinesReady} onNewDiscipline={newDiscipline} onManageDisciplines={manageDisciplines}
         onClose={() => setNewCard(null)} onCreate={store.addCard} />}
       {dialog === 'create' && <PromptDialog title="Novo quadro" label="Nome do quadro" maxLength={BOARD_NAME_MAX} confirmLabel="Criar quadro" placeholder="Ex.: Demandas 2027/1" onClose={() => setDialog(null)}
         onSubmit={async (name) => { const created = await boards.createBoard(name); if (created) navigate(`/q/${created.id}/kanban`) }} />}
@@ -192,9 +194,12 @@ function BoardScreen() {
       {dialog === 'delete' && <ConfirmDialog danger title={`Excluir o quadro "${board.name}"?`} confirmLabel="Excluir quadro" onClose={() => setDialog(null)}
         text={`Todas as colunas, as ${store.cards.length} demandas e as tarefas deste quadro serão apagadas. Não dá para desfazer.`}
         onConfirm={async () => { const next = boards.boards.find((item) => item.id !== board.id); if (await boards.deleteBoard(board.id)) navigate(next ? `/q/${next.id}` : '/') }} />}
-      {disciplinesDialog && <DisciplinesDialog store={store} boardName={board.name} startNew={disciplinesDialog.startNew} onCreated={disciplinesDialog.onCreated} onClose={() => setDisciplinesDialog(null)} />}
-      {dialog === 'settings' && <SettingsDialog onClose={() => setDialog(null)} />}
+      {dialog === 'settings' && <SettingsDialog boardName={board.name} disciplinesCount={store.disciplines.length} disciplinesOpen={Boolean(disciplinesDialog?.beside)}
+        onDisciplines={() => setDisciplinesDialog((current) => (current ? null : { beside: true }))}
+        onClose={() => { setDialog(null); setDisciplinesDialog(null) }} />}
       {dialog === 'shortcuts' && <ShortcutsDialog onClose={() => setDialog(null)} />}
+      {/* Por último: abre por cima de qualquer outro diálogo (ou ao lado das Configurações). */}
+      {disciplinesDialog && <DisciplinesDialog store={store} boardName={board.name} startNew={disciplinesDialog.startNew} onCreated={disciplinesDialog.onCreated} beside={disciplinesDialog.beside} onClose={() => setDisciplinesDialog(null)} />}
     </div>
   )
 }

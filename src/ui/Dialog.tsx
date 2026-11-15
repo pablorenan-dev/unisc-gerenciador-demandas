@@ -13,10 +13,18 @@ type DialogProps = {
   footer?: ReactNode
   /** Conteúdo no lugar do título visível (o `title` continua nomeando o diálogo). */
   header?: ReactNode
+  /**
+   * Par de diálogos lado a lado (em telas largas): o da esquerda abre espaço e o da direita
+   * entra ao lado, os dois centralizados juntos. Em telas estreitas, o segundo fica por cima.
+   */
+  dock?: 'left' | 'right'
 }
 
+// Vários diálogos podem estar abertos: a rolagem da página só volta quando o último fecha.
+let openDialogs = 0
+
 /** Diálogo modal acessível: foco preso, Esc fecha, clique fora fecha, foco volta para quem abriu. */
-export function Dialog({ title, eyebrow, onClose, size = 'md', children, footer, header }: DialogProps) {
+export function Dialog({ title, eyebrow, onClose, size = 'md', children, footer, header, dock }: DialogProps) {
   const panel = useRef<HTMLDivElement>(null)
   const titleId = useId()
   const onCloseRef = useRef(onClose)
@@ -27,20 +35,23 @@ export function Dialog({ title, eyebrow, onClose, size = 'md', children, footer,
     const node = panel.current
     const first = node?.querySelector<HTMLElement>('[data-autofocus]') ?? node?.querySelector<HTMLElement>(FOCUSABLE)
     ;(first ?? node)?.focus()
-    const overflow = document.body.style.overflow
+    openDialogs += 1
     document.body.style.overflow = 'hidden'
 
     const onKey = (event: KeyboardEvent) => {
       if (!node) return
       // Só o diálogo do topo responde (há diálogos abertos sobre diálogos, ex.: confirmação).
       const all = document.querySelectorAll('[role="dialog"]')
-      if (all[all.length - 1] !== node) return
+      const top = all[all.length - 1]
       if (event.key === 'Escape') {
+        if (top !== node) return
         event.stopPropagation()
         onCloseRef.current()
         return
       }
       if (event.key !== 'Tab') return
+      // Com dois diálogos lado a lado, o Tab fica preso naquele em que o foco está.
+      if ((document.activeElement?.closest('[role="dialog"]') ?? top) !== node) return
       const items = Array.from(node.querySelectorAll<HTMLElement>(FOCUSABLE)).filter((item) => item.offsetParent !== null || item === document.activeElement)
       if (!items.length) return
       const firstItem = items[0]
@@ -51,13 +62,14 @@ export function Dialog({ title, eyebrow, onClose, size = 'md', children, footer,
     document.addEventListener('keydown', onKey, true)
     return () => {
       document.removeEventListener('keydown', onKey, true)
-      document.body.style.overflow = overflow
+      openDialogs -= 1
+      if (openDialogs <= 0) { openDialogs = 0; document.body.style.overflow = '' }
       opener?.focus?.()
     }
   }, [])
 
   return (
-    <div className="dialog-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose() }}>
+    <div className={`dialog-backdrop${dock ? ` dialog-backdrop--${dock}` : ''}`} onMouseDown={(event) => { if (event.target === event.currentTarget) onClose() }}>
       <div ref={panel} className={`dialog dialog--${size}`} role="dialog" aria-modal="true" aria-labelledby={titleId} tabIndex={-1}>
         <header className="dialog__header">
           <div className="dialog__heading">
